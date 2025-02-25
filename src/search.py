@@ -5,48 +5,28 @@ import requests
 import datetime
 import bs4
 from bs4.element import Comment
+from google import genai
+import json
 
 
-def clean_html(html_text):
-    """
-    Clean the HTML content returned from a request.
-
-    Args:
-        html_text (str): The raw HTML text to be cleaned
-
-    Returns:
-        str: Cleaned HTML text
-    """
-    # Import required libraries
-    from bs4 import BeautifulSoup
-
-    # Parse the HTML with BeautifulSoup
-    soup = BeautifulSoup(html_text, "html.parser")
-
-    # Remove script and style elements
-    for script_or_style in soup(["script", "style"]):
-        script_or_style.decompose()
-
-    # Remove comments
-    for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
-        comment.extract()
-
-    # Remove extra whitespace and normalize
-    cleaned_text = soup.get_text(separator=" ", strip=True)
-    cleaned_text = " ".join(cleaned_text.split())
-
-    return cleaned_text
+def ai_clean_html(client, html, max_tokens):
+    config = genai.types.GenerateContentConfig(max_output_tokens=max_tokens)
+    prompt = f"Extract the human-readable text from this HTML document:\n\n{html}"
+    response = client.models.generate_content(
+        model="gemini-2.0-flash-lite", contents=prompt, config=config
+    )
+    return response.text
 
 
 class SearchResult:
-    def __init__(self, item: dict, max_html_length: Optional[int]):
+    def __init__(self, item: dict, ai_client, max_html_length: Optional[int]):
         self.title = item.get("og:title", item["title"])
         self.link = item["link"]
         self.snippet = item.get("og:description", item["snippet"])
         self.retrieved_timestamp = datetime.datetime.now()
         self.html = None
         self.max_html_length = max_html_length
-        self.html_truncated = False
+        self.ai_client = ai_client
 
     def to_dict(self):
         return {
@@ -55,7 +35,6 @@ class SearchResult:
             "snippet": self.snippet,
             "retrieved_timestamp": self.retrieved_timestamp,
             "cleaned_html": self.html,
-            "html_truncated": self.html_truncated,
         }
 
     def __str__(self):
@@ -67,29 +46,39 @@ class SearchResult:
     def add_html(self):
         html_results = requests.get(self.link)
         html_results.raise_for_status()
-        cleaned = clean_html(html_results.text)
-        if self.max_html_length is not None and len(cleaned) > self.max_html_length:
-            self.html = cleaned[: self.max_html_length]
-            self.html_truncated = True
-        else:
-            self.html = cleaned
+        cleaned = ai_clean_html(self.ai_client, html_results.text, self.max_html_length)
+        self.html = cleaned
 
 
 class Search:
-    def __init__(self, google_cse_key: str, google_cse_cx: str, max_html_length: int):
+    def __init__(
+        self,
+        google_cse_key: str,
+        google_cse_cx: str,
+        num_search_results: int,
+        max_html_length: int,
+    ):
         self.api_key = google_cse_key
         self.cx = google_cse_cx
         self.endpoint = "https://www.googleapis.com/customsearch/v1"
         self.max_html_length = max_html_length
+        self.num_search_results = num_search_results
+        self.ai_client = genai.Client(api_key=google_cse_key)
 
     def get_results(self, query: str, retrieve_html: bool) -> list[SearchResult]:
         res = requests.get(
             self.endpoint,
-            params={"key": self.api_key, "cx": self.cx, "q": query},
+            params={
+                "key": self.api_key,
+                "cx": self.cx,
+                "q": query,
+                "num": self.num_search_results,
+            },
         )
         res.raise_for_status()
         results = [
-            SearchResult(item, self.max_html_length) for item in res.json()["items"]
+            SearchResult(item, self.ai_client, self.max_html_length)
+            for item in res.json()["items"]
         ]
         if retrieve_html:
             for result in results:
@@ -103,8 +92,11 @@ class Search:
 
 def main():
     query = "prediction markets"
-    search = Search()
-    results = search.results(query)
+    secret_path = "config/secrets/basic_secrets.json"
+    with open(secret_path) as f:
+        secrets = json.load(f)
+    search = Search(secrets["google_api_key"], secrets["google_cse_cx"], 2, 10000)
+    results = search.get_results(query, True)
     print(results)
 
 
