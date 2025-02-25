@@ -1,0 +1,5 @@
+config/llm
+config/secrets
+venv/
+mlruns/
+*__pycache__*

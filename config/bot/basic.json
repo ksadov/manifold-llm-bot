@@ -1,0 +1,19 @@
+{
+  "name": "Basic Bot",
+  "secrets_path": "config/secrets/basic_secrets.json",
+  "llm_config_path": "config/llm/gpt-4o-mini.json",
+  "market_filters": {
+    "outcome_types": [
+      "BINARY"
+    ],
+    "include_groups": null,
+    "exclude_groups": [
+      "Personal",
+      "Personal Goals"
+    ]
+  },
+  "trade_loop_wait": 60,
+  "get_newest_limit": 3,
+  "comment_with_reasoning": false,
+  "max_html_length": 20000
+}
