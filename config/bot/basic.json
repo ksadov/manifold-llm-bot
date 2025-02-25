@@ -15,5 +15,6 @@
   "trade_loop_wait": 60,
   "get_newest_limit": 3,
   "comment_with_reasoning": false,
+  "max_search_results": 3,
   "max_html_length": 20000
 }

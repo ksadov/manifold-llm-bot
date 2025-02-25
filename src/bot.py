@@ -88,7 +88,10 @@ def init_from_config(config_path: Path) -> Bot:
         secrets = json.load(f)
     # Initialize search
     search = Search(
-        secrets["google_cse_key"], secrets["google_cse_cx"], config["max_html_length"]
+        secrets["google_api_key"],
+        secrets["google_cse_cx"],
+        config["max_search_results"],
+        config["max_html_length"],
     )
     return Bot(
         manifold_api_key=secrets["manifold_api_key"],
