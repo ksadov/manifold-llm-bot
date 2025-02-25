@@ -1,6 +1,7 @@
 import argparse
 
 from src.bot import init_from_config
+from src.logging import create_logger
 
 
 def main():
@@ -10,8 +11,15 @@ def main():
     parser.add_argument(
         "config_path", type=str, help="Path to the bot configuration file"
     )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
     args = parser.parse_args()
-    bot = init_from_config(args.config_path)
+    logger = create_logger()
+    bot = init_from_config(args.config_path, logger)
     bot.run()
 
 

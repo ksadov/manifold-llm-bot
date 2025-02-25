@@ -1,10 +1,6 @@
-import re
-import time
 from typing import Optional
 import requests
 import datetime
-import bs4
-from bs4.element import Comment
 from google import genai
 import json
 
@@ -86,11 +82,10 @@ class Search:
                     result.add_html()
                 except Exception as e:
                     result.html = f"Error retrieving HTML content: {e}"
-        print("results done!")
         return results
 
 
-def main():
+def test():
     query = "prediction markets"
     secret_path = "config/secrets/basic_secrets.json"
     with open(secret_path) as f:
@@ -101,4 +96,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    test()

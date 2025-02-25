@@ -3,3 +3,4 @@ config/secrets
 venv/
 mlruns/
 *__pycache__*
+bot.log

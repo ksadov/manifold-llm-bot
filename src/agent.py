@@ -1,7 +1,6 @@
 import dspy
-import datetime
+from logging import Logger
 import json
-import mlflow
 
 from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
@@ -19,25 +18,18 @@ class MarketPrediction(dspy.Signature):
 
 
 class AgentLoggingCallback(BaseCallback):
+    def __init__(self, python_logger: Logger):
+        super().__init__()
+        self.python_logger = python_logger
+
     def on_module_start(
         self,
         call_id: str,
         instance: Any,
         inputs: Dict[str, Any],
     ):
-        print(f"Starting call {call_id} with inputs:")
-        print(inputs)
-        print(f"Module: {instance}")
-        print("=" * 80)
-
-    def on_adapter_format_start(
-        self,
-        call_id: str,
-        instance: Any,
-        inputs: Dict[str, Any],
-    ):
-        print(f"Starting adapter {instance} with inputs:")
-        print(inputs)
+        self.python_logger.info(f"Starting DSPy module {instance} with inputs:")
+        self.python_logger.info(inputs)
 
     def on_adapter_format_end(
         self,
@@ -45,17 +37,9 @@ class AgentLoggingCallback(BaseCallback):
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
-        print("Adapter Exception:")
-        print(exception)
-
-    def on_adapter_parse_start(
-        self,
-        call_id: str,
-        instance: Any,
-        inputs: Dict[str, Any],
-    ):
-        print(f"Starting parser {instance} with inputs:")
-        print(inputs)
+        if exception is not None:
+            self.python_logger.error("DSPy Formatter Exception:")
+            self.python_logger.error(exception)
 
     def on_adapter_parse_end(
         self,
@@ -63,8 +47,9 @@ class AgentLoggingCallback(BaseCallback):
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
-        print("Parser Exception:")
-        print(exception)
+        if exception is not None:
+            self.python_logger.error("DSPy Parser Exception:")
+            self.python_logger.error(exception)
 
     def on_tool_start(
         self,
@@ -72,8 +57,8 @@ class AgentLoggingCallback(BaseCallback):
         instance: Any,
         inputs: Dict[str, Any],
     ):
-        print(f"Starting tool {instance} with inputs:")
-        print(inputs)
+        self.python_logger.info(f"Starting tool {instance} with inputs:")
+        self.python_logger.info(inputs)
 
     def on_tool_end(
         self,
@@ -81,16 +66,11 @@ class AgentLoggingCallback(BaseCallback):
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
-        print("Tool Exception:")
-        print(exception)
-
-    def on_lm_start(
-        self,
-        call_id: str,
-        instance: Any,
-        inputs: Dict[str, Any],
-    ):
-        pass
+        self.python_logger.info(f"Tool {call_id} finished with outputs:")
+        self.python_logger.info(outputs)
+        if exception is not None:
+            self.python_logger.error("DSPy Tool Exception:")
+            self.python_logger.error(exception)
 
     def on_lm_end(
         self,
@@ -98,20 +78,14 @@ class AgentLoggingCallback(BaseCallback):
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
-        print("LM Exception:")
-        print(exception)
-
-    def on_module_end(self, call_id, outputs, exception):
-        print("Module end Outputs:")
-        print(outputs)
-        print("Module end Exception:")
-        print(exception)
-        print("=" * 80)
+        self.python_logger.info(f"LM {call_id} finished with outputs:")
+        self.python_logger.info(outputs)
+        if exception is not None:
+            self.python_logger.error("DSPy LM Exception:")
+            self.python_logger.error(exception)
 
 
-def init_dspy(llm_config_path: str, search: Search):
-    mlflow.set_experiment(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
-    mlflow.dspy.autolog()
+def init_dspy(llm_config_path: str, search: Search, logger: Logger) -> dspy.ReAct:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
     # DSPY expects OpenAI-compatible endpoints to have the prefix openai/
@@ -122,7 +96,7 @@ def init_dspy(llm_config_path: str, search: Search):
         api_base=llm_config["api_base"],
         **llm_config["prompt_params"],
     )
-    dspy.configure(lm=lm, callbacks=[AgentLoggingCallback()])
+    dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)])
 
     def evaluate_math(expression: str) -> float:
         return dspy.PythonInterpreter({}).execute(expression)
@@ -133,6 +107,5 @@ def init_dspy(llm_config_path: str, search: Search):
         return result_dicts
 
     predict_market = dspy.ReAct(MarketPrediction, tools=[web_search, evaluate_math])
-    print("Initialized DSPY with config:")
-    print(llm_config)
+    logger.info("DSPy initialized")
     return predict_market

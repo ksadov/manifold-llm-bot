@@ -3,16 +3,15 @@
   "secrets_path": "config/secrets/basic_secrets.json",
   "llm_config_path": "config/llm/gpt-4o-mini.json",
   "market_filters": {
-    "outcome_types": [
-      "BINARY"
-    ],
-    "include_groups": null,
     "exclude_groups": [
       "Personal",
-      "Personal Goals"
+      "Personal Goals",
+      "Sex and love",
+      "Relationships",
+      "Dating"
     ]
   },
-  "trade_loop_wait": 60,
+  "trade_loop_wait": 600,
   "get_newest_limit": 3,
   "comment_with_reasoning": false,
   "max_search_results": 3,
