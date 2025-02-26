@@ -1,9 +1,10 @@
 import json
 import time
+import datetime
+
 from typing import Optional
 from pathlib import Path
 from logging import Logger
-from venv import logger
 
 from src.manifold.types import FullMarket, OutcomeType
 from src.search import Search
@@ -38,11 +39,14 @@ class Bot:
 
     def get_probability_estimate(self, market: FullMarket):
         prediction = self.predict_market(
-            question=market.question, description=market.textDescription
+            question=market.question,
+            description=market.textDescription,
+            current_date=datetime.datetime.now().strftime("%Y-%m-%d"),
         )
         return prediction.predicted_probability, prediction.reasoning
 
     def can_trade(self, market: FullMarket):
+        print("groupSlugs", market.groupSlugs)
         for exclude_group in self.market_filters.get("exclude_groups", []):
             if exclude_group in market.groupSlugs:
                 return False
@@ -50,7 +54,7 @@ class Bot:
 
     def trade_on_new_markets(self):
         markets = get_newest(self.get_newest_limit)
-        logger.debug(f"Found {len(markets)} new markets")
+        self.logger.debug(f"Found {len(markets)} new markets")
         # Filter out markets that have already been traded on
         markets = [
             market
@@ -60,9 +64,9 @@ class Bot:
         ]
         for market in markets:
             if market.outcomeType == OutcomeType.BINARY and self.can_trade(market):
-                logger.debug(f"Trading on market: {market}")
+                self.logger.debug(f"Trading on market: {market}")
                 probability_estimate, reasoning = self.get_probability_estimate(market)
-                logger.debug(
+                self.logger.debug(
                     f"Probability estimate for market {market.id}: {probability_estimate}"
                 )
                 """

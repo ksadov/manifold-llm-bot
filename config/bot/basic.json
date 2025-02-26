@@ -4,11 +4,11 @@
   "llm_config_path": "config/llm/gpt-4o-mini.json",
   "market_filters": {
     "exclude_groups": [
-      "Personal",
-      "Personal Goals",
-      "Sex and love",
-      "Relationships",
-      "Dating"
+      "personal",
+      "personal-goals",
+      "sex-and-love",
+      "relationships",
+      "dating"
     ]
   },
   "trade_loop_wait": 600,

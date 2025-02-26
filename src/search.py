@@ -19,7 +19,7 @@ class SearchResult:
         self.title = item.get("og:title", item["title"])
         self.link = item["link"]
         self.snippet = item.get("og:description", item["snippet"])
-        self.retrieved_timestamp = datetime.datetime.now()
+        self.retrieved_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.html = None
         self.max_html_length = max_html_length
         self.ai_client = ai_client

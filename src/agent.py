@@ -5,7 +5,6 @@ import json
 from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
 
-from src.manifold.types import FullMarket
 from src.search import Search
 
 
@@ -14,6 +13,7 @@ class MarketPrediction(dspy.Signature):
 
     question: str = dspy.InputField()
     description: str = dspy.InputField()
+    current_date: str = dspy.InputField()
     predicted_probability: str = dspy.OutputField()
 
 
