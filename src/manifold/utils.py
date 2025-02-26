@@ -1,6 +1,6 @@
 import requests
 from typing import Optional
-from src.manifold.types import LiteMarket, FullMarket, OutcomeType, Bet
+from src.manifold.types import LiteMarket, FullMarket, OutcomeType, Bet, User
 from src.manifold.constants import API_BASE
 
 
@@ -31,29 +31,28 @@ def get_newest(
     return fullmarkets
 
 
-def place_trade(
+def place_limit_order(
     market_id: str,
     probability: float,
-    max_trade_amount: int,
+    amount: int,
     manifold_api_key: str,
-    expiresAt: Optional[int] = None,
+    expires_millis_after: Optional[int] = None,
     dry_run: bool = False,
 ) -> Bet:
     """
-    Place trade based on the market and computed probability of YES
+    Place limit order based on the market and computed probability of YES
     """
     post_dict = {
-        "amount": max_trade_amount,
-        "probability": probability,
-        "marketId": market_id,
+        "amount": amount,
+        "contractId": market_id,
         "limitProb": probability,
     }
-    if expiresAt is not None:
-        post_dict["expiresAt"] = expiresAt
+    if expires_millis_after:
+        post_dict["expiresMillisAfter"] = expires_millis_after
     if dry_run:
         post_dict["dryRun"] = True
-    headers = {"Authorization": f"Bearer {manifold_api_key}"}
-    response = requests.post(API_BASE + "trade", json=post_dict, headers=headers)
+    headers = {"Authorization": f"Key {manifold_api_key}"}
+    response = requests.post(API_BASE + "bet", json=post_dict, headers=headers)
     response.raise_for_status()
     return Bet(**response.json())
 
@@ -73,3 +72,13 @@ def place_comment(
     headers = {"Authorization": f"Bearer {manifold_api_key}"}
     response = requests.post(API_BASE + "comment", json=post_dict, headers=headers)
     response.raise_for_status()
+
+
+def get_my_account(manifold_api_key: str) -> User:
+    """
+    Get the User associated with the Manifold API key
+    """
+    header = {"Authorization": f"Key {manifold_api_key}"}
+    response = requests.get(API_BASE + "me", headers=header)
+    response.raise_for_status()
+    return User(**response.json())

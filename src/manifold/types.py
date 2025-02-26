@@ -218,6 +218,12 @@ class Fees:
         self.liquidityFee = liquidityFee
         self.creatorFee = creatorFee
 
+    def __repr__(self):
+        return f"Fees(platformFee={self.platformFee}, liquidityFee={self.liquidityFee}, creatorFee={self.creatorFee})"
+
+    def __str__(self):
+        return self.__repr__()
+
 
 class Fill:
     def __init__(
@@ -232,38 +238,142 @@ class Fill:
         self.shares = shares
         self.timestamp = timestamp
 
+    def __repr__(self):
+        return f"Fill(amount={self.amount}, matchedBetId={self.matchedBetId}, timestamp={self.timestamp})"
+
+    def __str__(self):
+        return self.__repr__()
+
 
 class Bet:
     def __init__(
         self,
-        shares: float,
-        probBefore: float,
-        isFilled: bool,
-        probAfter: float,
-        userId: str,
         amount: int,
         contractId: str,
-        id: str,
-        fees: Fees,
-        isCancelled: bool,
-        loanAmount: int,
         orderAmount: int,
+        shares: float,
+        isFilled: bool,
+        isCancelled: bool,
         fills: list[Fill],
-        createdTime: int,
         outcome: str,
+        probBefore: float,
+        probAfter: float,
+        loanAmount: int,
+        createdTime: int,
+        isRedemption: bool,
+        visibility: str,
+        betId: str,
+        fees: Fees,
+        limitProb: Optional[float] = None,
+        expiresMillisAfter: Optional[int] = None,
+        expiresAt: Optional[int] = None,
     ):
-        self.shares = shares
-        self.probBefore = probBefore
-        self.isFilled = isFilled
-        self.probAfter = probAfter
-        self.userId = userId
         self.amount = amount
         self.contractId = contractId
-        self.id = id
-        self.fees = fees
-        self.isCancelled = isCancelled
-        self.loanAmount = loanAmount
         self.orderAmount = orderAmount
+        self.shares = shares
+        self.isFilled = isFilled
+        self.isCancelled = isCancelled
         self.fills = fills
-        self.createdTime = createdTime
         self.outcome = outcome
+        self.probBefore = probBefore
+        self.probAfter = probAfter
+        self.loanAmount = loanAmount
+        self.createdTime = createdTime
+        self.isRedemption = isRedemption
+        self.visibility = visibility
+        self.expiresAt = expiresAt
+        self.betId = betId
+        self.fees = fees
+        self.limitProb = limitProb
+        self.expiresMillisAfter = expiresMillisAfter
+
+    def __repr__(self):
+        return f"Bet(amount={self.amount}, contractId={self.contractId}, outcome={self.outcome}, createdTime={self.createdTime})"
+
+    def __str__(self):
+        return self.__repr__()
+
+
+class User:
+    def __init__(
+        self,
+        id: str,
+        createdTime: int,
+        name: str,
+        username: str,
+        url: str,
+        balance: int,
+        totalDeposits: float,
+        lastBetTime: Optional[int] = None,
+        currentBettingStreak: Optional[int] = None,
+        avatarUrl: Optional[str] = None,
+        bio: Optional[str] = None,
+        bannerUrl: Optional[str] = None,
+        website: Optional[str] = None,
+        twitterHandle: Optional[str] = None,
+        discordHandle: Optional[str] = None,
+        isBot: Optional[bool] = None,
+        isAdmin: Optional[bool] = None,
+        isTrustworthy: Optional[bool] = None,
+        isBannedFromPosting: Optional[bool] = None,
+        userDeleted: Optional[bool] = None,
+        verifiedPhone: Optional[bool] = None,
+        creatorTraders: Optional[int] = None,
+        signupBonusPaid: Optional[bool] = None,
+        isBannedFromMana: Optional[bool] = None,
+        nextLoanCached: Optional[int] = None,
+        hasSeenLoanModal: Optional[bool] = None,
+        isAdvancedTrader: Optional[bool] = None,
+        kycDocumentStatus: Optional[str] = None,
+        optOutBetWarnings: Optional[bool] = None,
+        shouldShowWelcome: Optional[bool] = None,
+        streakForgiveness: Optional[int] = None,
+        followerCountCached: Optional[int] = None,
+        isBannedFromSweepcash: Optional[bool] = None,
+        cashBalance: Optional[int] = None,
+        spiceBalance: Optional[int] = None,
+        totalCashDeposits: Optional[float] = None,
+    ):
+        self.id = id
+        self.createdTime = createdTime
+        self.name = name
+        self.username = username
+        self.url = url
+        self.balance = balance
+        self.totalDeposits = totalDeposits
+        self.lastBetTime = lastBetTime
+        self.currentBettingStreak = currentBettingStreak
+        self.avatarUrl = avatarUrl
+        self.bio = bio
+        self.bannerUrl = bannerUrl
+        self.website = website
+        self.twitterHandle = twitterHandle
+        self.discordHandle = discordHandle
+        self.isBot = isBot
+        self.isAdmin = isAdmin
+        self.isTrustworthy = isTrustworthy
+        self.isBannedFromPosting = isBannedFromPosting
+        self.userDeleted = userDeleted
+        self.verifiedPhone = verifiedPhone
+        self.creatorTraders = creatorTraders
+        self.signupBonusPaid = signupBonusPaid
+        self.isBannedFromMana = isBannedFromMana
+        self.nextLoanCached = nextLoanCached
+        self.hasSeenLoanModal = hasSeenLoanModal
+        self.isAdvancedTrader = isAdvancedTrader
+        self.kycDocumentStatus = kycDocumentStatus
+        self.optOutBetWarnings = optOutBetWarnings
+        self.shouldShowWelcome = shouldShowWelcome
+        self.streakForgiveness = streakForgiveness
+        self.followerCountCached = followerCountCached
+        self.isBannedFromSweepcash = isBannedFromSweepcash
+        self.cashBalance = cashBalance
+        self.spiceBalance = spiceBalance
+        self.totalCashDeposits = totalCashDeposits
+
+    def __repr__(self):
+        return f"User(id={self.id}, name={self.name}, username={self.username})"
+
+    def __str__(self):
+        return self.__repr__()
