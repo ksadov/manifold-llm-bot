@@ -46,7 +46,6 @@ class Bot:
         return prediction.predicted_probability, prediction.reasoning
 
     def can_trade(self, market: FullMarket):
-        print("groupSlugs", market.groupSlugs)
         for exclude_group in self.market_filters.get("exclude_groups", []):
             if exclude_group in market.groupSlugs:
                 return False
