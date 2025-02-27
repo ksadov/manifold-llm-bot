@@ -14,7 +14,7 @@ class MarketPrediction(dspy.Signature):
     question: str = dspy.InputField()
     description: str = dspy.InputField()
     current_date: str = dspy.InputField()
-    predicted_probability: str = dspy.OutputField()
+    answer: float = dspy.OutputField()
 
 
 class AgentLoggingCallback(BaseCallback):
@@ -85,7 +85,9 @@ class AgentLoggingCallback(BaseCallback):
             self.python_logger.error(exception)
 
 
-def init_dspy(llm_config_path: str, search: Search, logger: Logger) -> dspy.ReAct:
+def init_dspy(
+    llm_config_path: str, search: Search, logger: Optional[Logger] = None
+) -> dspy.ReAct:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
     # DSPY expects OpenAI-compatible endpoints to have the prefix openai/
@@ -96,7 +98,10 @@ def init_dspy(llm_config_path: str, search: Search, logger: Logger) -> dspy.ReAc
         api_base=llm_config["api_base"],
         **llm_config["prompt_params"],
     )
-    dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)])
+    if logger is not None:
+        dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)])
+    else:
+        dspy.configure(lm=lm)
 
     def evaluate_math(expression: str) -> float:
         return dspy.PythonInterpreter({}).execute(expression)
@@ -107,5 +112,6 @@ def init_dspy(llm_config_path: str, search: Search, logger: Logger) -> dspy.ReAc
         return result_dicts
 
     predict_market = dspy.ReAct(MarketPrediction, tools=[web_search, evaluate_math])
-    logger.info("DSPy initialized")
+    if logger is not None:
+        logger.info("DSPy initialized")
     return predict_market

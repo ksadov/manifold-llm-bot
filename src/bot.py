@@ -55,7 +55,7 @@ class Bot:
             description=market.textDescription,
             current_date=datetime.datetime.now().strftime("%Y-%m-%d"),
         )
-        return prediction.predicted_probability, prediction.reasoning
+        return prediction.answer, prediction.reasoning
 
     def can_trade(self, market: FullMarket):
         for exclude_group in self.market_filters.get("exclude_groups", []):

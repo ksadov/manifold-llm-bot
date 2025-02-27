@@ -1,3 +1,4 @@
+from calendar import c
 from typing import Optional
 import requests
 import datetime
@@ -53,6 +54,7 @@ class Search:
         google_cse_cx: str,
         num_search_results: int,
         max_html_length: int,
+        cutoff_date: Optional[datetime.datetime] = None,
     ):
         self.api_key = google_cse_key
         self.cx = google_cse_cx
@@ -60,16 +62,27 @@ class Search:
         self.max_html_length = max_html_length
         self.num_search_results = num_search_results
         self.ai_client = genai.Client(api_key=google_cse_key)
+        if cutoff_date:
+            self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
+        else:
+            self.date_restriction_string = None
+
+    def set_cutoff_date(self, cutoff_date: datetime.datetime):
+        self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
+        return self
 
     def get_results(self, query: str, retrieve_html: bool) -> list[SearchResult]:
+        response_params = {
+            "key": self.api_key,
+            "cx": self.cx,
+            "q": query,
+            "num": self.num_search_results,
+        }
+        if self.date_restriction_string:
+            response_params["sort"] = self.date_restriction_string
         res = requests.get(
             self.endpoint,
-            params={
-                "key": self.api_key,
-                "cx": self.cx,
-                "q": query,
-                "num": self.num_search_results,
-            },
+            params=response_params,
         )
         res.raise_for_status()
         results = [
@@ -88,9 +101,12 @@ class Search:
 def test():
     query = "prediction markets"
     secret_path = "config/secrets/basic_secrets.json"
+    cutoff_date = datetime.datetime(2005, 1, 1)
     with open(secret_path) as f:
         secrets = json.load(f)
-    search = Search(secrets["google_api_key"], secrets["google_cse_cx"], 2, 10000)
+    search = Search(
+        secrets["google_api_key"], secrets["google_cse_cx"], 3, 10000, cutoff_date
+    )
     results = search.get_results(query, True)
     print(results)
 
