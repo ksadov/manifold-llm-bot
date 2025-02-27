@@ -4,3 +4,5 @@ venv/
 mlruns/
 *__pycache__*
 bot.log
+*.parquet
+manifold_dataset_sample.json
