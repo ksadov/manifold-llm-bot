@@ -6,3 +6,4 @@ mlruns/
 bot.log
 *.parquet
 manifold_dataset_sample.json
+logs/

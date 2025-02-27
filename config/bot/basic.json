@@ -1,5 +1,5 @@
 {
-  "name": "Basic Bot",
+  "name": "basic_bot",
   "secrets_path": "config/secrets/basic_secrets.json",
   "llm_config_path": "config/llm/gpt-4o-mini.json",
   "market_filters": {

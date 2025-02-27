@@ -4,11 +4,10 @@ import datetime
 import argparse
 from typing import Optional
 
-from pandas import cut
-
 from src.backtesting.dataset import load_examples
 from src.agent import init_dspy
 from src.search import Search
+from src.logging import create_logger
 from tqdm import tqdm
 
 
@@ -30,7 +29,7 @@ def validate_directional(example, pred, trace=None) -> int:
 def validate_probability(example, pred, trace=None) -> float:
     pred_answer = pred["answer"]
     actual_probability = example["probability"]
-    return pred_answer - actual_probability
+    return (pred_answer - actual_probability) ** 2
 
 
 def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
@@ -57,6 +56,8 @@ def backtest_evaluate(
     dev_parquet_path: Path,
     max_examples: Optional[int],
     use_directional: bool,
+    output_path: Optional[Path],
+    log_level: str,
 ):
     with open(config_path) as f:
         config = json.load(f)
@@ -77,7 +78,8 @@ def backtest_evaluate(
         max_examples=max_examples,
     )
     search = init_search(config_path, cutoff_date)
-    predict_market = init_dspy(llm_config_path, search)
+    logger = create_logger(config["name"], eval=True, log_level=log_level)
+    predict_market = init_dspy(llm_config_path, search, logger)
     scores = []
     for example in tqdm(examples):
         search.set_cutoff_date(example["datetime_timestamp"])
@@ -92,7 +94,10 @@ def backtest_evaluate(
             else validate_probability(example, pred)
         )
         scores.append(score)
-    print(scores)
+    print(f"Mean score: {sum(scores) / len(scores)}")
+    if output_path:
+        with open(output_path, "w") as f:
+            json.dump(scores, f)
 
 
 def main():
@@ -120,12 +125,25 @@ def main():
         action="store_true",
         help="Whether to use directional evaluation",
     )
+    parser.add_argument(
+        "--output_path",
+        type=Path,
+        default=None,
+        help="Path to the output file",
+    )
+    parser.add_argument(
+        "--log_level",
+        type=str,
+        default="INFO",
+    )
     args = parser.parse_args()
     backtest_evaluate(
         args.config_path,
         args.dev_parquet_path,
         args.max_examples,
         args.use_directional,
+        args.output_path,
+        args.log_level,
     )
 
 

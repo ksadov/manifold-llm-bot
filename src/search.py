@@ -8,7 +8,7 @@ import json
 
 def ai_clean_html(client, html, max_tokens):
     config = genai.types.GenerateContentConfig(max_output_tokens=max_tokens)
-    prompt = f"Extract the human-readable text from this HTML document:\n\n{html}"
+    prompt = f"Extract only the human-readable text from this HTML document and format with Markdown syntax:\n\n{html}"
     response = client.models.generate_content(
         model="gemini-2.0-flash-lite", contents=prompt, config=config
     )

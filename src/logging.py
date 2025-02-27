@@ -1,5 +1,7 @@
 import logging
 import json
+import os
+import datetime
 from logging.handlers import RotatingFileHandler
 
 
@@ -14,11 +16,16 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 
-def create_logger() -> logging.Logger:
-    logger = logging.getLogger("BotLogger")
-    logger.setLevel(logging.DEBUG)
+def create_logger(bot_name: str, eval: bool, log_level: str) -> logging.Logger:
+    logger = logging.getLogger(bot_name)
+    logger.setLevel(log_level)
 
-    handler = RotatingFileHandler("bot.log", maxBytes=1_000_000, backupCount=5)
+    os.makedirs("logs", exist_ok=True)
+
+    logfile_name = f"{bot_name}-{'eval' if eval else ''}-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    handler = RotatingFileHandler(
+        f"logs/{logfile_name}", maxBytes=1_000_000, backupCount=5
+    )
     formatter = JSONFormatter()
     handler.setFormatter(formatter)
     logger.addHandler(handler)
