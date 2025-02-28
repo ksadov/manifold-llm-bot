@@ -9,11 +9,68 @@ import os
 import concurrent.futures
 from functools import partial
 from tqdm.auto import tqdm
+import signal
+import threading
 
 from src.backtesting.dataset import load_examples
 from src.agent import init_dspy
 from src.search import Search
 from src.logging import create_logger
+
+
+class TimeoutError(Exception):
+    """Raised when a function takes too long to execute."""
+
+    pass
+
+
+def timeout_handler(signum, frame):
+    """Handler for timeout signal."""
+    raise TimeoutError("Function timed out")
+
+
+def run_with_timeout(func, args=(), kwargs={}, timeout_seconds=None):
+    """
+    Run a function with a timeout.
+
+    Args:
+        func: The function to run
+        args: The positional arguments to pass to the function
+        kwargs: The keyword arguments to pass to the function
+        timeout_seconds: The timeout in seconds
+
+    Returns:
+        The result of the function if it completes within the timeout
+
+    Raises:
+        TimeoutError: If the function takes longer than timeout_seconds to complete
+    """
+    if timeout_seconds is None:
+        return func(*args, **kwargs)
+
+    # Use a different approach based on the platform
+    result = [None]
+    exception = [None]
+
+    def target():
+        try:
+            result[0] = func(*args, **kwargs)
+        except Exception as e:
+            exception[0] = e
+
+    thread = threading.Thread(target=target)
+    thread.daemon = True
+
+    thread.start()
+    thread.join(timeout_seconds)
+
+    if thread.is_alive():
+        raise TimeoutError(f"Function timed out after {timeout_seconds} seconds")
+
+    if exception[0]:
+        raise exception[0]
+
+    return result[0]
 
 
 def validate_directional(example, pred, trace=None) -> int:
@@ -60,22 +117,65 @@ def process_example(
     example: Dict[str, Any],
     predict_market,
     search: Search,
+    timeout_seconds: Optional[int] = None,
+    logger=None,
 ) -> Dict[str, Any]:
     """Process a single example and return scores."""
     start_time = time.time()
-    search.set_cutoff_date(example["datetime_timestamp"])
-    pred = predict_market(
-        question=example["question"],
-        description=example["description"],
-        current_date=example["current_date"],
-    )
-    elapsed_time = time.time() - start_time
 
-    return {
-        "time": elapsed_time,
-        "directional": validate_directional(example, pred, trace=None),
-        "probability": validate_probability(example, pred, trace=None),
-    }
+    try:
+        search.set_cutoff_date(example["datetime_timestamp"])
+
+        # Run predict_market with a timeout
+        pred = run_with_timeout(
+            predict_market,
+            kwargs={
+                "question": example["question"],
+                "description": example["description"],
+                "current_date": example["current_date"],
+            },
+            timeout_seconds=timeout_seconds,
+        )
+
+        elapsed_time = time.time() - start_time
+
+        return {
+            "id": example.get("id", "unknown"),
+            "time": elapsed_time,
+            "directional": validate_directional(example, pred, trace=None),
+            "probability": validate_probability(example, pred, trace=None),
+            "skipped": False,
+        }
+
+    except TimeoutError as e:
+        elapsed_time = time.time() - start_time
+        if logger:
+            logger.warning(
+                f"Example {example.get('id', 'unknown')} timed out after {elapsed_time:.2f} seconds: {str(e)}"
+            )
+        return {
+            "id": example.get("id", "unknown"),
+            "time": elapsed_time,
+            "directional": 0,
+            "probability": 0,
+            "skipped": True,
+            "error": str(e),
+        }
+
+    except Exception as e:
+        elapsed_time = time.time() - start_time
+        if logger:
+            logger.warning(
+                f"Error processing example {example.get('id', 'unknown')}: {str(e)}"
+            )
+        return {
+            "id": example.get("id", "unknown"),
+            "time": elapsed_time,
+            "directional": 0,
+            "probability": 0,
+            "skipped": True,
+            "error": str(e),
+        }
 
 
 def backtest_evaluate(
@@ -84,6 +184,7 @@ def backtest_evaluate(
     max_examples: Optional[int],
     log_level: str,
     num_workers: int,
+    timeout_seconds: Optional[int] = None,
 ):
     with open(config_path) as f:
         config = json.load(f)
@@ -107,7 +208,8 @@ def backtest_evaluate(
     evalfile_name = f"logs/eval/{logfile_name.split('.')[0]}.json"
     os.makedirs("logs/eval", exist_ok=True)
     logger.info(
-        f"Config: {config_path}, dev_parquet_path: {dev_parquet_path}, max_examples: {max_examples}, num_workers: {num_workers}",
+        f"Config: {config_path}, dev_parquet_path: {dev_parquet_path}, max_examples: {max_examples}, "
+        f"num_workers: {num_workers}, timeout_seconds: {timeout_seconds}",
     )
     logger.info(f"Config: {config}")
     logger.info(f"Loaded {len(examples)} examples")
@@ -129,6 +231,7 @@ def backtest_evaluate(
         # This makes the search instance accessible to the worker
         process_example.search = search_instances[worker_id % num_workers]
         process_example.predict_market = predict_market
+        process_example.logger = logger
 
     # Define a simplified worker function that uses thread-local resources
     def worker_fn(example, worker_id):
@@ -136,6 +239,8 @@ def backtest_evaluate(
             example,
             process_example.predict_market,
             process_example.search,
+            timeout_seconds=timeout_seconds,
+            logger=process_example.logger,
         )
 
     # Use ThreadPoolExecutor for parallel processing
@@ -154,6 +259,7 @@ def backtest_evaluate(
         with tqdm(total=len(examples), desc="Processing examples") as pbar:
             completed = 0
             next_example_idx = num_workers
+            skipped_count = 0
 
             # Process results as they complete and submit new tasks
             while futures:
@@ -168,17 +274,23 @@ def backtest_evaluate(
                     try:
                         result = future.result()
                         all_results.append(result)
+
+                        if result.get("skipped", False):
+                            skipped_count += 1
+
                     except Exception as e:
-                        logger.error(f"Error processing example: {e}")
+                        logger.error(f"Unexpected error in worker: {e}")
                         # Add placeholder for failed example
                         all_results.append(
                             {
                                 "time": 0,
                                 "directional": 0,
                                 "probability": 0,
+                                "skipped": True,
                                 "error": str(e),
                             }
                         )
+                        skipped_count += 1
 
                     # Submit next task if there are more examples
                     if next_example_idx < len(examples):
@@ -191,22 +303,48 @@ def backtest_evaluate(
                     # Update progress bar
                     completed += 1
                     pbar.update(1)
+                    pbar.set_postfix({"skipped": skipped_count})
+
+    # Filter out skipped examples for metrics calculation
+    valid_results = [
+        result for result in all_results if not result.get("skipped", False)
+    ]
 
     # Aggregate results
-    scores = {
-        "directional": [result["directional"] for result in all_results],
-        "probability": [result["probability"] for result in all_results],
-        "time": [result["time"] for result in all_results],
+    if valid_results:
+        scores = {
+            "directional": [result["directional"] for result in valid_results],
+            "probability": [result["probability"] for result in valid_results],
+            "time": [result["time"] for result in valid_results],
+        }
+
+        print(f"Processed {len(all_results)} examples, {skipped_count} skipped")
+        print(
+            f"Directional score: {sum(scores['directional']) / len(scores['directional'])}"
+        )
+        print(
+            f"Probability score: {sum(scores['probability']) / len(scores['probability'])}"
+        )
+        print(
+            f"Average time per prediction: {round(sum(scores['time']) / len(scores['time']), 3)}"
+        )
+    else:
+        print("All examples were skipped, no valid results to report")
+        scores = {"directional": [], "probability": [], "time": []}
+
+    # Include skipped examples in the saved results
+    full_results = {
+        "scores": scores,
+        "total_examples": len(all_results),
+        "skipped_examples": skipped_count,
+        "skipped_percentage": (
+            round(skipped_count / len(all_results) * 100, 2) if all_results else 0
+        ),
+        "all_results": all_results,
     }
 
-    print("Directional score:", sum(scores["directional"]) / len(scores["directional"]))
-    print("Probability score:", sum(scores["probability"]) / len(scores["probability"]))
-    print(
-        "Average time per prediction:",
-        round(sum(scores["time"]) / len(scores["time"]), 3),
-    )
     with open(evalfile_name, "w") as f:
-        json.dump(scores, f)
+        json.dump(full_results, f)
         logger.info(f"Saved evaluation results to {evalfile_name}")
 
 
@@ -246,6 +384,12 @@ def main():
         default=4,
         help="Number of parallel workers to use",
     )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=None,
+        help="Timeout in seconds for each prediction (None means no timeout)",
+    )
     args = parser.parse_args()
     backtest_evaluate(
         args.config_path,
@@ -253,6 +397,7 @@ def main():
         args.max_examples,
         args.log_level,
         args.num_workers,
+        args.timeout,
     )
 
 
