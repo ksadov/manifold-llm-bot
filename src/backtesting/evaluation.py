@@ -14,13 +14,13 @@ from tqdm import tqdm
 def validate_directional(example, pred, trace=None) -> int:
     pred_answer = pred["answer"]
     resolution = example["resolution"]
-    if resolution == "YES" and pred_answer >= 0.5:
+    if resolution == "YES" and pred_answer > 0.5:
         return 1
     elif resolution == "NO" and pred_answer < 0.5:
         return 1
     elif resolution == "YES" and pred_answer < 0.5:
         return -1
-    elif resolution == "NO" and pred_answer >= 0.5:
+    elif resolution == "NO" and pred_answer > 0.5:
         return -1
     else:
         return 0
@@ -55,7 +55,6 @@ def backtest_evaluate(
     config_path: Path,
     dev_parquet_path: Path,
     max_examples: Optional[int],
-    use_directional: bool,
     output_path: Optional[Path],
     log_level: str,
 ):
@@ -80,7 +79,7 @@ def backtest_evaluate(
     search = init_search(config_path, cutoff_date)
     logger = create_logger(config["name"], eval=True, log_level=log_level)
     predict_market = init_dspy(llm_config_path, search, logger)
-    scores = []
+    scores = {"directional": [], "probability": []}
     for example in tqdm(examples):
         search.set_cutoff_date(example["datetime_timestamp"])
         pred = predict_market(
@@ -88,13 +87,10 @@ def backtest_evaluate(
             description=example["description"],
             current_date=example["current_date"],
         )
-        score = (
-            validate_directional(example, pred)
-            if use_directional
-            else validate_probability(example, pred)
-        )
-        scores.append(score)
-    print(f"Mean score: {sum(scores) / len(scores)}")
+        scores["directional"].append(validate_directional(example, pred, trace=None))
+        scores["probability"].append(validate_probability(example, pred, trace=None))
+    print("Directional score:", sum(scores["directional"]) / len(scores["directional"]))
+    print("Probability score:", sum(scores["probability"]) / len(scores["probability"]))
     if output_path:
         with open(output_path, "w") as f:
             json.dump(scores, f)
@@ -141,7 +137,6 @@ def main():
         args.config_path,
         args.dev_parquet_path,
         args.max_examples,
-        args.use_directional,
         args.output_path,
         args.log_level,
     )
