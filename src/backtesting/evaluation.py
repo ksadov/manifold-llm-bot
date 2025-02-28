@@ -3,6 +3,7 @@ import json
 import datetime
 import argparse
 from typing import Optional
+import time
 
 from src.backtesting.dataset import load_examples
 from src.agent import init_dspy
@@ -79,18 +80,24 @@ def backtest_evaluate(
     search = init_search(config_path, cutoff_date)
     logger = create_logger(config["name"], eval=True, log_level=log_level)
     predict_market = init_dspy(llm_config_path, search, logger)
-    scores = {"directional": [], "probability": []}
+    scores = {"directional": [], "probability": [], "time": []}
     for example in tqdm(examples):
+        start_time = time.time()
         search.set_cutoff_date(example["datetime_timestamp"])
         pred = predict_market(
             question=example["question"],
             description=example["description"],
             current_date=example["current_date"],
         )
+        scores["time"].append(time.time() - start_time)
         scores["directional"].append(validate_directional(example, pred, trace=None))
         scores["probability"].append(validate_probability(example, pred, trace=None))
     print("Directional score:", sum(scores["directional"]) / len(scores["directional"]))
     print("Probability score:", sum(scores["probability"]) / len(scores["probability"]))
+    print(
+        "Average time per prediction:",
+        round(sum(scores["time"]) / len(scores["time"]), 3),
+    )
     if output_path:
         with open(output_path, "w") as f:
             json.dump(scores, f)
