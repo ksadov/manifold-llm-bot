@@ -1,9 +1,11 @@
+from math import log
 from pathlib import Path
 import json
 import datetime
 import argparse
 from typing import Optional
 import time
+import os
 
 from src.backtesting.dataset import load_examples
 from src.agent import init_dspy
@@ -56,7 +58,6 @@ def backtest_evaluate(
     config_path: Path,
     dev_parquet_path: Path,
     max_examples: Optional[int],
-    output_path: Optional[Path],
     log_level: str,
 ):
     with open(config_path) as f:
@@ -78,7 +79,14 @@ def backtest_evaluate(
         max_examples=max_examples,
     )
     search = init_search(config_path, cutoff_date)
-    logger = create_logger(config["name"], eval=True, log_level=log_level)
+    logger, logfile_name = create_logger(config["name"], eval=True, log_level=log_level)
+    evalfile_name = f"logs/eval/{logfile_name.split('.')[0]}.json"
+    os.makedirs("logs/eval", exist_ok=True)
+    logger.info(
+        f"Config: {config_path}, dev_parquet_path: {dev_parquet_path}, max_examples: {max_examples}",
+    )
+    logger.info("Config: {config}")
+    logger.info(f"Loaded {len(examples)} examples")
     predict_market = init_dspy(llm_config_path, search, logger)
     scores = {"directional": [], "probability": [], "time": []}
     for example in tqdm(examples):
@@ -98,9 +106,9 @@ def backtest_evaluate(
         "Average time per prediction:",
         round(sum(scores["time"]) / len(scores["time"]), 3),
     )
-    if output_path:
-        with open(output_path, "w") as f:
-            json.dump(scores, f)
+    with open(evalfile_name, "w") as f:
+        json.dump(scores, f)
+        logger.info(f"Saved evaluation results to {evalfile_name}")
 
 
 def main():
@@ -129,12 +137,6 @@ def main():
         help="Whether to use directional evaluation",
     )
     parser.add_argument(
-        "--output_path",
-        type=Path,
-        default=None,
-        help="Path to the output file",
-    )
-    parser.add_argument(
         "--log_level",
         type=str,
         default="INFO",
@@ -144,7 +146,6 @@ def main():
         args.config_path,
         args.dev_parquet_path,
         args.max_examples,
-        args.output_path,
         args.log_level,
     )
 

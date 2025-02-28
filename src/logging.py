@@ -10,7 +10,6 @@ class JSONFormatter(logging.Formatter):
         log_record = {
             "time": self.formatTime(record, self.datefmt),
             "level": record.levelname,
-            "name": record.name,
             "message": record.getMessage(),
         }
         return json.dumps(log_record)
@@ -36,4 +35,4 @@ def create_logger(bot_name: str, eval: bool, log_level: str) -> logging.Logger:
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    return logger
+    return logger, logfile_name

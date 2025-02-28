@@ -114,4 +114,5 @@ def init_dspy(
     predict_market = dspy.ReAct(MarketPrediction, tools=[web_search, evaluate_math])
     if logger is not None:
         logger.info("DSPy initialized")
+        logger.info(llm_config)
     return predict_market
