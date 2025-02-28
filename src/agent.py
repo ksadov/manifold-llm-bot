@@ -28,8 +28,8 @@ class AgentLoggingCallback(BaseCallback):
         instance: Any,
         inputs: Dict[str, Any],
     ):
-        self.python_logger.info(f"Starting DSPy module {instance} with inputs:")
-        self.python_logger.info(inputs)
+        self.python_logger.debug(f"Starting DSPy module {instance} with inputs:")
+        self.python_logger.debug(inputs)
 
     def on_adapter_format_end(
         self,
@@ -57,8 +57,8 @@ class AgentLoggingCallback(BaseCallback):
         instance: Any,
         inputs: Dict[str, Any],
     ):
-        self.python_logger.info(f"Starting tool {instance} with inputs:")
-        self.python_logger.info(inputs)
+        self.python_logger.debug(f"Starting tool {instance} with inputs:")
+        self.python_logger.debug(inputs)
 
     def on_tool_end(
         self,
@@ -66,8 +66,8 @@ class AgentLoggingCallback(BaseCallback):
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
-        self.python_logger.info(f"Tool {call_id} finished with outputs:")
-        self.python_logger.info(outputs)
+        self.python_logger.debug(f"Tool {call_id} finished with outputs:")
+        self.python_logger.debug(outputs)
         if exception is not None:
             self.python_logger.error("DSPy Tool Exception:")
             self.python_logger.error(exception)
