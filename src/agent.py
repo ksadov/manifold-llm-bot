@@ -1,3 +1,4 @@
+from json import tool
 import dspy
 from logging import Logger
 import json
@@ -72,21 +73,33 @@ class AgentLoggingCallback(BaseCallback):
             self.python_logger.error("DSPy Tool Exception:")
             self.python_logger.error(exception)
 
+    def on_lm_start(
+        self,
+        call_id: str,
+        instance: Any,
+        inputs: Dict[str, Any],
+    ):
+        self.python_logger.debug(f"Starting LM {instance} with inputs:")
+        self.python_logger.debug(inputs)
+
     def on_lm_end(
         self,
         call_id: str,
         outputs: Optional[Dict[str, Any]],
         exception: Optional[Exception] = None,
     ):
-        self.python_logger.info(f"LM {call_id} finished with outputs:")
-        self.python_logger.info(outputs)
+        self.python_logger.debug(f"LM {call_id} finished with outputs:")
+        self.python_logger.debug(outputs)
         if exception is not None:
             self.python_logger.error("DSPy LM Exception:")
             self.python_logger.error(exception)
 
 
 def init_dspy(
-    llm_config_path: str, search: Search, logger: Optional[Logger] = None
+    llm_config_path: str,
+    search: Search,
+    unified_web_search: bool,
+    logger: Optional[Logger] = None,
 ) -> dspy.ReAct:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
@@ -103,15 +116,40 @@ def init_dspy(
     else:
         dspy.configure(lm=lm)
 
-    def evaluate_math(expression: str) -> float:
-        return dspy.PythonInterpreter({}).execute(expression)
-
-    def web_search(query: str) -> list[dict]:
-        results = search.get_results(query, retrieve_html=True)
+    def get_relevant_urls(query: str) -> list[dict]:
+        results = search.get_results(query)
         result_dicts = [result.to_dict() for result in results]
         return result_dicts
 
-    predict_market = dspy.ReAct(MarketPrediction, tools=[web_search, evaluate_math])
+    def retrieve_web_content(urls: list[str]) -> list[dict]:
+        cleaned_html = [search.retrieve_cleaned_html(url) for url in urls]
+        result_dicts = [
+            {"url": url, "cleaned_html_content": html}
+            for url, html in zip(urls, cleaned_html)
+        ]
+        return result_dicts
+
+    if unified_web_search:
+
+        def web_search(query: str) -> list[dict]:
+            relevant_urls = get_relevant_urls(query)
+            urls = [result["link"] for result in relevant_urls]
+            web_content = retrieve_web_content(urls)
+            result_dicts = [
+                {**relevant_url, **content}
+                for relevant_url, content in zip(relevant_urls, web_content)
+            ]
+            return result_dicts
+
+        tools = [web_search]
+
+    else:
+        tools = [get_relevant_urls, retrieve_web_content]
+
+    predict_market = dspy.ReAct(
+        MarketPrediction,
+        tools=tools,
+    )
     if logger is not None:
         logger.info("DSPy initialized")
         logger.info(llm_config)

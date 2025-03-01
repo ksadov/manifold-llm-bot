@@ -8,7 +8,7 @@ import json
 
 def ai_clean_html(client, html, max_tokens):
     config = genai.types.GenerateContentConfig(max_output_tokens=max_tokens)
-    prompt = f"Extract only the human-readable text from this HTML document and format with Markdown syntax:\n\n{html}"
+    prompt = f"Extract only the human-readable text from this HTML document (excluding CSS, Javascript, HTML tags, etc) and format it with Markdown syntax:\n\n{html}"
     response = client.models.generate_content(
         model="gemini-2.0-flash-lite", contents=prompt, config=config
     )
@@ -21,8 +21,6 @@ class SearchResult:
         self.link = item["link"]
         self.snippet = item.get("og:description", item["snippet"])
         self.retrieved_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.html = None
-        self.max_html_length = max_html_length
         self.ai_client = ai_client
 
     def to_dict(self):
@@ -31,7 +29,6 @@ class SearchResult:
             "link": self.link,
             "snippet": self.snippet,
             "retrieved_timestamp": self.retrieved_timestamp,
-            "cleaned_html": self.html,
         }
 
     def __str__(self):
@@ -39,12 +36,6 @@ class SearchResult:
 
     def __repr__(self):
         return str(self)
-
-    def add_html(self):
-        html_results = requests.get(self.link)
-        html_results.raise_for_status()
-        cleaned = ai_clean_html(self.ai_client, html_results.text, self.max_html_length)
-        self.html = cleaned
 
 
 class Search:
@@ -71,7 +62,7 @@ class Search:
         self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
         return self
 
-    def get_results(self, query: str, retrieve_html: bool) -> list[SearchResult]:
+    def get_results(self, query: str) -> list[SearchResult]:
         response_params = {
             "key": self.api_key,
             "cx": self.cx,
@@ -89,13 +80,17 @@ class Search:
             SearchResult(item, self.ai_client, self.max_html_length)
             for item in res.json()["items"]
         ]
-        if retrieve_html:
-            for result in results:
-                try:
-                    result.add_html()
-                except Exception as e:
-                    result.html = f"Error retrieving HTML content: {e}"
         return results
+
+    def retrieve_cleaned_html(self, url):
+        try:
+            response = requests.get(url)
+            clean_html = ai_clean_html(
+                self.ai_client, response.text, self.max_html_length
+            )
+        except Exception as e:
+            clean_html = f"Error retrieving or processing HTML: {e}"
+        return clean_html
 
 
 def test():
@@ -107,8 +102,10 @@ def test():
     search = Search(
         secrets["google_api_key"], secrets["google_cse_cx"], 3, 10000, cutoff_date
     )
-    results = search.get_results(query, True)
+    results = search.get_results(query)
     print(results)
+    clean_html = search.retrieve_cleaned_html(search.ai_client, results[0].link, 10000)
+    print(clean_html)
 
 
 if __name__ == "__main__":

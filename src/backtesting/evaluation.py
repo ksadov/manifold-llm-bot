@@ -3,13 +3,11 @@ from pathlib import Path
 import json
 import datetime
 import argparse
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any
 import time
 import os
 import concurrent.futures
-from functools import partial
 from tqdm.auto import tqdm
-import signal
 import threading
 
 from src.backtesting.dataset import load_examples
@@ -136,6 +134,8 @@ def process_example(
             },
             timeout_seconds=timeout_seconds,
         )
+        logger.info("Result for question: " + example["question"])
+        logger.info(pred)
 
         elapsed_time = time.time() - start_time
 
@@ -221,7 +221,9 @@ def backtest_evaluate(
     ]
 
     # Initialize prediction function
-    predict_market = init_dspy(llm_config_path, search_instances[0], logger)
+    predict_market = init_dspy(
+        llm_config_path, search_instances[0], config["unified_web_search"], logger
+    )
 
     # Prepare worker function with shared resources
     all_results = []
@@ -318,18 +320,18 @@ def backtest_evaluate(
             "time": [result["time"] for result in valid_results],
         }
 
-        print(f"Processed {len(all_results)} examples, {skipped_count} skipped")
-        print(
+        logger.info(f"Processed {len(all_results)} examples, {skipped_count} skipped")
+        logger.info(
             f"Directional score: {sum(scores['directional']) / len(scores['directional'])}"
         )
-        print(
-            f"Probability score: {sum(scores['probability']) / len(scores['probability'])}"
+        logger.info(
+            f"Probability score error: {sum(scores['probability']) / len(scores['probability'])}"
         )
-        print(
+        logger.info(
             f"Average time per prediction: {round(sum(scores['time']) / len(scores['time']), 3)}"
         )
     else:
-        print("All examples were skipped, no valid results to report")
+        logger.info("All examples were skipped, no valid results to report")
         scores = {"directional": [], "probability": [], "time": []}
 
     # Include skipped examples in the saved results

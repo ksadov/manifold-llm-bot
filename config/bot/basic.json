@@ -15,7 +15,8 @@
   "trade_loop_wait": 600,
   "get_newest_limit": 10,
   "comment_with_reasoning": false,
-  "max_search_results": 3,
+  "max_search_results": null,
+  "unified_web_search": false,
   "max_html_length": 20000,
   "bet": {
     "kelly_alpha": 0.1,
