@@ -7,10 +7,11 @@ from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
 
 from src.search import Search
+from src.python_interpreter import PythonInterpreter
 
 
 class MarketPrediction(dspy.Signature):
-    """Given a question and description, predict the likelihood that the market will resolve YES."""
+    """Given a question and description, predict the likelihood (between 0 and 1) that the market will resolve YES."""
 
     question: str = dspy.InputField()
     description: str = dspy.InputField()
@@ -116,6 +117,11 @@ def init_dspy(
     else:
         dspy.configure(lm=lm)
 
+    def eval_python(code: str) -> Dict[str, Any]:
+        interpreter = PythonInterpreter()
+        result = interpreter.execute(code)
+        return result
+
     def get_relevant_urls(query: str) -> list[dict]:
         results = search.get_results(query)
         result_dicts = [result.to_dict() for result in results]
@@ -141,10 +147,10 @@ def init_dspy(
             ]
             return result_dicts
 
-        tools = [web_search]
+        tools = [eval_python, web_search]
 
     else:
-        tools = [get_relevant_urls, retrieve_web_content]
+        tools = [eval_python, get_relevant_urls, retrieve_web_content]
 
     predict_market = dspy.ReAct(
         MarketPrediction,
