@@ -17,6 +17,7 @@
   "comment_with_reasoning": false,
   "max_search_results": null,
   "unified_web_search": false,
+  "use_python_interpreter": false,
   "max_html_length": 20000,
   "bet": {
     "kelly_alpha": 0.1,

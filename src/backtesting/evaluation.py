@@ -222,7 +222,11 @@ def backtest_evaluate(
 
     # Initialize prediction function
     predict_market = init_dspy(
-        llm_config_path, search_instances[0], config["unified_web_search"], logger
+        llm_config_path,
+        search_instances[0],
+        config["unified_web_search"],
+        config["use_python_interpreter"],
+        logger,
     )
 
     # Prepare worker function with shared resources

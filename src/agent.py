@@ -100,6 +100,7 @@ def init_dspy(
     llm_config_path: str,
     search: Search,
     unified_web_search: bool,
+    use_python_interpreter: bool,
     logger: Optional[Logger] = None,
 ) -> dspy.ReAct:
     with open(llm_config_path) as f:
@@ -147,10 +148,13 @@ def init_dspy(
             ]
             return result_dicts
 
-        tools = [eval_python, web_search]
+        tools = [web_search]
 
     else:
-        tools = [eval_python, get_relevant_urls, retrieve_web_content]
+        tools = [get_relevant_urls, retrieve_web_content]
+
+    if use_python_interpreter:
+        tools.append(eval_python)
 
     predict_market = dspy.ReAct(
         MarketPrediction,
@@ -158,5 +162,4 @@ def init_dspy(
     )
     if logger is not None:
         logger.info("DSPy initialized")
-        logger.info(llm_config)
     return predict_market
