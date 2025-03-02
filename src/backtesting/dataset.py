@@ -48,6 +48,7 @@ def make_example(
         "description",
         "creatorUsername",
         "comments",
+        "current_date",
     )
 
 

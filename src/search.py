@@ -4,6 +4,7 @@ import requests
 import datetime
 from google import genai
 import json
+from pathlib import Path
 
 
 def ai_clean_html(client, html, max_tokens):
@@ -91,6 +92,25 @@ class Search:
         except Exception as e:
             clean_html = f"Error retrieving or processing HTML: {e}"
         return clean_html
+
+
+def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
+    # Load config from file
+    with open(config_path) as f:
+        config = json.load(f)
+    secrets_json_path = Path(config["secrets_path"])
+    # Load secrets from file
+    with open(secrets_json_path) as f:
+        secrets = json.load(f)
+    # Initialize search
+    search = Search(
+        secrets["google_api_key"],
+        secrets["google_cse_cx"],
+        config["max_search_results"],
+        config["max_html_length"],
+        cutoff_date=cutoff_date,
+    )
+    return search
 
 
 def test():

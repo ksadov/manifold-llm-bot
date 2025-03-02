@@ -15,6 +15,8 @@ class MarketPrediction(dspy.Signature):
 
     question: str = dspy.InputField()
     description: str = dspy.InputField()
+    creatorUsername: str = dspy.InputField()
+    comments: list[dict] = dspy.InputField()
     current_date: str = dspy.InputField()
     answer: float = dspy.OutputField()
 
@@ -102,6 +104,7 @@ def init_dspy(
     unified_web_search: bool,
     use_python_interpreter: bool,
     logger: Optional[Logger] = None,
+    timeout: Optional[int] = None,
 ) -> dspy.ReAct:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
@@ -112,6 +115,7 @@ def init_dspy(
         api_key=llm_config["api_key"],
         api_base=llm_config["api_base"],
         **llm_config["prompt_params"],
+        timeout=timeout,
     )
     if logger is not None:
         dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)])
