@@ -7,6 +7,7 @@ import os
 import dspy
 from logging import Logger
 from typing import List, Tuple
+import math
 
 from src.backtesting.dataset import load_examples
 from src.agent import init_dspy
@@ -29,10 +30,26 @@ def validate_directional(example, pred, trace=None) -> int:
         return 0
 
 
-def validate_probability(example, pred, trace=None) -> float:
-    pred_answer = pred["answer"]
-    actual_probability = example["probability"]
-    return (pred_answer - actual_probability) ** 2
+def soft_cross_entropy(example, pred, epsilon=1e-15):
+    """
+    Compute the cross entropy loss for soft targets.
+
+    Parameters:
+    - y_true: Array of ground truth probabilities (values in [0, 1]).
+    - p_pred: Array of predicted probabilities (values in [0, 1]).
+    - epsilon: Small value to avoid log(0).
+
+    Returns:
+    - Array of loss values for each instance.
+    """
+    p_pred = pred["answer"]
+    y_true = example["probability"]
+    # Clip predictions to avoid log(0)
+    p_pred = min(p_pred, epsilon, 1 - epsilon)
+    loss = -(y_true * math.log(p_pred) + (1 - y_true) * math.log(1 - p_pred))
+    # for our optimizer, higher is better
+    flipped_loss = -loss
+    return flipped_loss
 
 
 def setup_pipeline(
@@ -86,6 +103,23 @@ def setup_pipeline(
     return examples, predict_market, logger, evalfile_name
 
 
+def jsonify_eval_outputs(result_triples: List[dict], evalfile_name: str):
+    """
+    result_triples is a list of (example, prediction, score) tuples
+    """
+    results = []
+    for example, prediction, score in result_triples:
+        results.append(
+            {
+                "example": str(example.toDict()),
+                "prediction": str(prediction.toDict()),
+                "score": score,
+            }
+        )
+    with open(evalfile_name, "w") as f:
+        json.dump(results, f)
+
+
 def evaluate(
     config_path: Path,
     dev_parquet_path: Path,
@@ -106,12 +140,10 @@ def evaluate(
         return_outputs=True,
         max_errors=len(examples),
     )
-    overall_score, outputs = evaluator(predict_market, metric=validate_probability)
+    overall_score, result_triples = evaluator(predict_market, metric=soft_cross_entropy)
     logger.info(f"Overall score: {overall_score}")
     if evalfile_name:
-        with open(evalfile_name, "w") as f:
-            json.dump(outputs, f)
-            logger.info(f"Saved evaluation to {evalfile_name}")
+        jsonify_eval_outputs(result_triples, evalfile_name)
     return overall_score
 
 
