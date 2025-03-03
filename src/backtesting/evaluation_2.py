@@ -142,6 +142,10 @@ def evaluate(
     )
     overall_score, result_triples = evaluator(predict_market, metric=soft_cross_entropy)
     logger.info(f"Overall score: {overall_score}")
+    # get average directional score
+    directional_scores = [validate_directional(*triple) for triple in result_triples]
+    avg_directional_score = sum(directional_scores) / len(directional_scores)
+    logger.info(f"Average directional score: {avg_directional_score}")
     if evalfile_name:
         jsonify_eval_outputs(result_triples, evalfile_name)
     return overall_score
