@@ -88,7 +88,7 @@ def setup_pipeline(
     logger.info(
         f"Config: {config_path}, parquet_path: {parquet_path}, max_examples: {max_examples}, "
     )
-    logger.info(f"Config: {config}")
+    logger.info(f"Config: {json.dumps(config, indent=4)}")
     logger.info(f"Loaded {len(examples)} examples")
     search = init_search(config_path, cutoff_date)
 

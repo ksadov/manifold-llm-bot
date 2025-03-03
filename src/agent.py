@@ -32,7 +32,7 @@ class AgentLoggingCallback(BaseCallback):
         inputs: Dict[str, Any],
     ):
         self.python_logger.debug(f"Starting DSPy module {instance} with inputs:")
-        self.python_logger.debug(inputs)
+        self.python_logger.debug(json.dumps(inputs, indent=4))
 
     def on_adapter_format_end(
         self,
@@ -61,7 +61,7 @@ class AgentLoggingCallback(BaseCallback):
         inputs: Dict[str, Any],
     ):
         self.python_logger.debug(f"Starting tool {instance} with inputs:")
-        self.python_logger.debug(inputs)
+        self.python_logger.debug(json.dumps(inputs, indent=4))
 
     def on_tool_end(
         self,
@@ -82,7 +82,7 @@ class AgentLoggingCallback(BaseCallback):
         inputs: Dict[str, Any],
     ):
         self.python_logger.debug(f"Starting LM {instance} with inputs:")
-        self.python_logger.debug(inputs)
+        self.python_logger.debug(json.dumps(inputs, indent=4))
 
     def on_lm_end(
         self,
@@ -91,7 +91,7 @@ class AgentLoggingCallback(BaseCallback):
         exception: Optional[Exception] = None,
     ):
         self.python_logger.debug(f"LM {call_id} finished with outputs:")
-        self.python_logger.debug(outputs)
+        self.python_logger.debug(json.dumps(outputs, indent=4))
         if exception is not None:
             self.python_logger.error("DSPy LM Exception:")
             self.python_logger.error(exception)
