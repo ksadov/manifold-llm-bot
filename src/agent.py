@@ -1,4 +1,3 @@
-from json import tool
 import dspy
 from logging import Logger
 import json
@@ -6,8 +5,8 @@ import json
 from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
 
-from src.search import Search
-from src.python_interpreter import PythonInterpreter
+from src.tools.search import Search
+from src.tools.python_interpreter import PythonInterpreter
 
 
 class MarketPrediction(dspy.Signature):

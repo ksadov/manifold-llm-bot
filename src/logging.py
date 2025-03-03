@@ -15,13 +15,12 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_record)
 
 
-def create_logger(bot_name: str, eval: bool, log_level: str) -> logging.Logger:
+def create_logger(bot_name: str, label: str, log_level: str) -> logging.Logger:
     logger = logging.getLogger(bot_name)
     logger.setLevel(log_level)
+    print(f"Logging level: {log_level}")
 
-    os.makedirs("logs", exist_ok=True)
-
-    logfile_name = f"{bot_name}-{'eval' if eval else ''}-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    logfile_name = f"{bot_name}-{label}-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
     handler = RotatingFileHandler(
         f"logs/{logfile_name}", maxBytes=1_000_000, backupCount=5
     )
@@ -29,9 +28,8 @@ def create_logger(bot_name: str, eval: bool, log_level: str) -> logging.Logger:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    # Also log to console at INFO level
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(log_level)
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 

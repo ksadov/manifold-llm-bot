@@ -2,8 +2,7 @@ config/llm
 config/secrets
 venv/
 mlruns/
-*__pycache__*
-bot.log
-*.parquet
-manifold_dataset_sample.json
 logs/
+*__pycache__*
+processed_data/
+dspy_programs/

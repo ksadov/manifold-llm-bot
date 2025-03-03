@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from collections import defaultdict
 import pandas as pd
 from tqdm import tqdm
@@ -167,6 +168,10 @@ def process_data(markets_filepath, trades_filepath, comments_filepath, output_fi
     for col in ["tradeHistory", "comments"]:
         df[col] = df[col].apply(json.dumps)
 
+    # make sure that directory exists
+    output_dir = "/".join(output_filepath.split("/")[:-1])
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
     df.to_parquet(output_filepath, index=False)
     print(f"Saved dataset to {output_filepath}")
 
@@ -182,7 +187,9 @@ if __name__ == "__main__":
     arg.add_argument("--markets_filepath", type=str)
     arg.add_argument("--trades_filepath", type=str)
     arg.add_argument("--comments_filepath", type=str)
-    arg.add_argument("--output_filepath", type=str, default="manifold_dataset.parquet")
+    arg.add_argument(
+        "--output_filepath", type=str, default="processed_data/manifold_dataset.parquet"
+    )
     args = arg.parse_args()
 
     process_data(

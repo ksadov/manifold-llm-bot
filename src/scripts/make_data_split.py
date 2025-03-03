@@ -75,13 +75,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--input_filepath",
         type=str,
-        required=True,
+        default="processed_data/manifold_dataset.parquet",
         help="Path to the input parquet file",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="parquet_data",
+        default="processed_data",
         help="Directory to save the output files",
     )
     parser.add_argument(

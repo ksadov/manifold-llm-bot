@@ -8,7 +8,7 @@ from logging import Logger
 
 from src.calculations import kelly_fraction
 from src.manifold.types import FullMarket, OutcomeType
-from src.search import Search
+from src.tools.search import Search
 from src.manifold.utils import (
     get_newest,
     place_limit_order,
@@ -33,6 +33,9 @@ class Bot:
         kelly_alpha: float,
         expires_millis_after: Optional[int],
         dry_run: bool,
+        unified_web_search: bool,
+        use_python_interpreter: bool,
+        timeout: Optional[int],
     ):
         self.logger = logger
         self.manifold_api_key = manifold_api_key
@@ -47,13 +50,22 @@ class Bot:
         self.expires_millis_after = expires_millis_after
         self.dry_run = dry_run
 
-        self.predict_market = init_dspy(llm_config_path, search, logger)
+        self.predict_market = init_dspy(
+            llm_config_path,
+            search,
+            unified_web_search,
+            use_python_interpreter,
+            logger,
+            timeout,
+        )
 
     def get_probability_estimate(self, market: FullMarket):
         prediction = self.predict_market(
             question=market.question,
             description=market.textDescription,
             current_date=datetime.datetime.now().strftime("%Y-%m-%d"),
+            creatorUsername=market.creatorUsername,
+            comments=market.comments,
         )
         return prediction.answer, prediction.reasoning
 
@@ -75,15 +87,11 @@ class Bot:
         ]
         for market in markets:
             if market.outcomeType == OutcomeType.BINARY and self.can_trade(market):
-                """
-                self.logger.debug(f"Trading on market: {market}")
+                self.logger.info(f"Trading on market: {market}")
                 probability_estimate, reasoning = self.get_probability_estimate(market)
-                self.logger.debug(
+                self.logger.info(
                     f"Probability estimate for market {market.id}: {probability_estimate}"
                 )
-                """
-                probability_estimate = 0.5
-                reasoning = "Testing"
                 bet_amount = max(
                     kelly_fraction(
                         probability_estimate, market.probability, self.kelly_alpha
@@ -115,10 +123,7 @@ class Bot:
             time.sleep(self.trade_loop_wait)
 
 
-def init_from_config(config_path: Path, logger: Logger) -> Bot:
-    # Load config from file
-    with open(config_path) as f:
-        config = json.load(f)
+def init_from_config(config: dict, logger: Logger) -> Bot:
     secrets_json_path = Path(config["secrets_path"])
     # Load secrets from file
     with open(secrets_json_path) as f:
@@ -143,4 +148,7 @@ def init_from_config(config_path: Path, logger: Logger) -> Bot:
         kelly_alpha=config["bet"]["kelly_alpha"],
         expires_millis_after=config["bet"]["expires_millis_after"],
         dry_run=config["bet"]["dry_run"],
+        unified_web_search=config["unified_web_search"],
+        use_python_interpreter=config["use_python_interpreter"],
+        timeout=config["trading_timeout"],
     )

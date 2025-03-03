@@ -1,4 +1,3 @@
-import requests
 from typing import Optional
 from enum import Enum
 from typing import Optional
@@ -62,6 +61,7 @@ class LiteMarket:
         token: Optional[str] = None,
         lastCommentTime: Optional[int] = None,
         resolverId: Optional[str] = None,
+        comments: Optional[list[str]] = None,
     ):
         self.id = id
         self.creatorId = creatorId
@@ -97,6 +97,7 @@ class LiteMarket:
         self.token = token
         self.lastCommentTime = lastCommentTime
         self.resolverId = resolverId
+        self.comments = comments
 
     def __repr__(self):
         return f"LiteMarket(id={self.id}, question={self.question})"
@@ -152,6 +153,7 @@ class FullMarket(LiteMarket):
         bountyLeft: Optional[float] = None,
         coverImageUrl: Optional[str] = None,
         groupSlugs: Optional[list[str]] = None,
+        comments: Optional[list[str]] = None,
     ):
         super().__init__(
             id,
@@ -188,6 +190,7 @@ class FullMarket(LiteMarket):
             token,
             lastCommentTime,
             resolverId,
+            comments,
         )
         self.description = description
         self.textDescription = textDescription
