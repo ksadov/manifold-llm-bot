@@ -21,6 +21,7 @@ def create_logger(bot_name: str, label: str, log_level: str) -> logging.Logger:
     print(f"Logging level: {log_level}")
 
     logfile_name = f"{bot_name}-{label}-{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+    os.makedirs("logs", exist_ok=True)
     handler = RotatingFileHandler(
         f"logs/{logfile_name}", maxBytes=1_000_000, backupCount=5
     )
