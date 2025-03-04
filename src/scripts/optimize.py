@@ -6,7 +6,7 @@ import dspy
 from typing import Optional
 from pathlib import Path
 from src.evaluation import setup_pipeline, soft_cross_entropy, validate_directional
-rfrom src.backtesting.dataset import load_examples
+from src.backtesting.dataset import load_examples
 
 
 def metric_for_optimizer(example, pred, trace=None):
