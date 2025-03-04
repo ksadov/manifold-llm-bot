@@ -9,7 +9,6 @@ from logging import Logger
 from typing import List, Tuple
 import math
 
-from src.backtesting.dataset import load_examples
 from src.agent import init_dspy
 from src.tools.search import init_search
 from src.logging import create_logger
@@ -85,6 +84,7 @@ def setup_pipeline(
     # Initialize prediction function
     predict_market = init_dspy(
         llm_config_path,
+        config["dspy_program_path"],
         search,
         config["unified_web_search"],
         config["use_python_interpreter"],

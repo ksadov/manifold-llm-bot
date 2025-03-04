@@ -24,6 +24,7 @@ class Bot:
         logger: Logger,
         manifold_api_key: str,
         llm_config_path: str,
+        dspy_program_path: str,
         search: Search,
         trade_loop_wait: int,
         get_newest_limit: int,
@@ -52,6 +53,7 @@ class Bot:
 
         self.predict_market = init_dspy(
             llm_config_path,
+            dspy_program_path,
             search,
             unified_web_search,
             use_python_interpreter,
@@ -139,6 +141,7 @@ def init_from_config(config: dict, logger: Logger) -> Bot:
         logger=logger,
         manifold_api_key=secrets["manifold_api_key"],
         llm_config_path=config["llm_config_path"],
+        dspy_program_path=config["dspy_program_path"],
         search=search,
         trade_loop_wait=config["trade_loop_wait"],
         get_newest_limit=config["get_newest_limit"],

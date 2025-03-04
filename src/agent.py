@@ -1,6 +1,7 @@
 import dspy
 from logging import Logger
 import json
+from pathlib import Path
 
 from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
@@ -121,7 +122,8 @@ class ReActWithTimeout(dspy.ReAct):
 
 
 def init_dspy(
-    llm_config_path: str,
+    llm_config_path: Path,
+    dspy_program_path: Optional[Path],
     search: Search,
     unified_web_search: bool,
     use_python_interpreter: bool,
@@ -186,6 +188,9 @@ def init_dspy(
         tools=tools,
         timeout=timeout,
     )
+    if dspy_program_path is not None:
+        predict_market.load(dspy_program_path)
+        logger.info(f"Loaded DSPy program from {dspy_program_path}")
     if logger is not None:
         logger.info("DSPy initialized")
     return predict_market
