@@ -100,20 +100,24 @@ class AgentLoggingCallback(BaseCallback):
 
 class ReActWithTimeout(dspy.ReAct):
     def __init__(self, *args, **kwargs):
-        self.timeout = kwargs.pop("timeout", 2)
-        print("Timeout set to", self.timeout)
+        self.timeout = kwargs.pop("timeout", None)
         super().__init__(*args, **kwargs)
 
     def _call_with_potential_trajectory_truncation(
         self, module, trajectory, **input_args
     ):
-        return run_with_timeout(
-            super()._call_with_potential_trajectory_truncation,
-            self.timeout,
-            module,
-            trajectory,
-            **input_args,
-        )
+        if self.timeout is None:
+            return super()._call_with_potential_trajectory_truncation(
+                module, trajectory, **input_args
+            )
+        else:
+            return run_with_timeout(
+                super()._call_with_potential_trajectory_truncation,
+                self.timeout,
+                module,
+                trajectory,
+                **input_args,
+            )
 
 
 def init_dspy(
@@ -122,7 +126,7 @@ def init_dspy(
     unified_web_search: bool,
     use_python_interpreter: bool,
     logger: Optional[Logger] = None,
-    timeout: Optional[int] = 60,
+    timeout: Optional[int] = None,
 ) -> ReActWithTimeout:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
@@ -135,9 +139,9 @@ def init_dspy(
         **llm_config["prompt_params"],
     )
     if logger is not None:
-        dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)], timeout=timeout)
+        dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)])
     else:
-        dspy.configure(lm=lm, timeout=timeout)
+        dspy.configure(lm=lm)
 
     def eval_python(code: str) -> Dict[str, Any]:
         interpreter = PythonInterpreter()
@@ -180,6 +184,7 @@ def init_dspy(
     predict_market = ReActWithTimeout(
         MarketPrediction,
         tools=tools,
+        timeout=timeout,
     )
     if logger is not None:
         logger.info("DSPy initialized")

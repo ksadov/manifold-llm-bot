@@ -6,8 +6,6 @@ from google import genai
 import json
 from pathlib import Path
 
-from src.timeout import run_with_timeout
-
 
 def ai_clean_html(client, html, max_tokens):
     config = genai.types.GenerateContentConfig(max_output_tokens=max_tokens)
@@ -49,7 +47,6 @@ class Search:
         num_search_results: int,
         max_html_length: int,
         cutoff_date: Optional[datetime.datetime] = None,
-        timeout: float = 30.0,
     ):
         self.api_key = google_cse_key
         self.cx = google_cse_cx
@@ -57,7 +54,6 @@ class Search:
         self.max_html_length = max_html_length
         self.num_search_results = num_search_results
         self.ai_client = genai.Client(api_key=google_cse_key)
-        self.timeout = timeout
         if cutoff_date:
             self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
         else:
@@ -67,13 +63,7 @@ class Search:
         self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
         return self
 
-    def set_timeout(self, timeout: float):
-        """Update the timeout value."""
-        self.timeout = timeout
-        return self
-
-    def _execute_get_results(self, query: str) -> list[SearchResult]:
-        """Internal method to execute the search query."""
+    def get_results(self, query: str) -> list[SearchResult]:
         response_params = {
             "key": self.api_key,
             "cx": self.cx,
@@ -93,12 +83,7 @@ class Search:
         ]
         return results
 
-    def get_results(self, query: str) -> list[SearchResult]:
-        """Get search results with timeout protection."""
-        return run_with_timeout(self._execute_get_results, self.timeout, query)
-
-    def _execute_retrieve_cleaned_html(self, url):
-        """Internal method to retrieve and clean HTML."""
+    def retrieve_cleaned_html(self, url):
         try:
             response = requests.get(url)
             clean_html = ai_clean_html(
@@ -108,14 +93,8 @@ class Search:
             clean_html = f"Error retrieving or processing HTML: {e}"
         return clean_html
 
-    def retrieve_cleaned_html(self, url):
-        """Retrieve and clean HTML with timeout protection."""
-        return run_with_timeout(self._execute_retrieve_cleaned_html, self.timeout, url)
 
-
-def init_search(
-    config_path: Path, cutoff_date: datetime.datetime, timeout: float = 30.0
-) -> Search:
+def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
     # Load config from file
     with open(config_path) as f:
         config = json.load(f)
@@ -130,7 +109,6 @@ def init_search(
         config["max_search_results"],
         config["max_html_length"],
         cutoff_date=cutoff_date,
-        timeout=timeout,
     )
     return search
 
@@ -147,17 +125,13 @@ def test():
         3,
         10000,
         cutoff_date,
-        timeout=10.0,
     )
 
-    try:
-        results = search.get_results(query)
-        print(results)
+    results = search.get_results(query)
+    print(results)
 
-        clean_html = search.retrieve_cleaned_html(results[0].link)
-        print(clean_html)
-    except TimeoutError as e:
-        print(f"Operation timed out: {e}")
+    clean_html = search.retrieve_cleaned_html(results[0].link)
+    print(clean_html)
 
 
 if __name__ == "__main__":

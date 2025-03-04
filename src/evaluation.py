@@ -80,7 +80,7 @@ def setup_pipeline(
         evalfile_name = None
     logger.info(f"Config: {config_path}")
     logger.info(f"Config: {json.dumps(config, indent=4)}")
-    search = init_search(config_path, cutoff_date, timeout=timeout)
+    search = init_search(config_path, cutoff_date)
 
     # Initialize prediction function
     predict_market = init_dspy(
