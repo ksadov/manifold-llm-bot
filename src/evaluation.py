@@ -30,7 +30,7 @@ def validate_directional(example, pred, trace=None) -> int:
         return 0
 
 
-def soft_cross_entropy(example, pred, trace):
+def soft_cross_entropy(example, pred, trace=None):
     """
     Compute the cross entropy loss for soft targets.
 
@@ -55,8 +55,6 @@ def soft_cross_entropy(example, pred, trace):
 
 def setup_pipeline(
     config_path: Path,
-    parquet_path: Path,
-    max_examples: Optional[int],
     log_level: str,
     split: str,
     timeout: Optional[int] = None,
@@ -73,24 +71,16 @@ def setup_pipeline(
         )
     else:
         cutoff_date = None
-    examples = load_examples(
-        parquet_path,
-        cutoff_date=cutoff_date,
-        exclude_groups=config["market_filters"]["exclude_groups"],
-        max_examples=max_examples,
-    )
+
     logger, logfile_name = create_logger(config["name"], split, log_level=log_level)
     if split == "eval":
         evalfile_name = f"logs/eval/{logfile_name.split('.')[0]}.json"
         os.makedirs("logs/eval", exist_ok=True)
     else:
         evalfile_name = None
-    logger.info(
-        f"Config: {config_path}, parquet_path: {parquet_path}, max_examples: {max_examples}, "
-    )
+    logger.info(f"Config: {config_path}")
     logger.info(f"Config: {json.dumps(config, indent=4)}")
-    logger.info(f"Loaded {len(examples)} examples")
-    search = init_search(config_path, cutoff_date)
+    search = init_search(config_path, cutoff_date, timeout=timeout)
 
     # Initialize prediction function
     predict_market = init_dspy(
@@ -101,4 +91,10 @@ def setup_pipeline(
         logger,
         timeout=timeout,
     )
-    return examples, predict_market, logger, evalfile_name
+    return (
+        predict_market,
+        logger,
+        evalfile_name,
+        cutoff_date,
+        config["market_filters"]["exclude_groups"],
+    )

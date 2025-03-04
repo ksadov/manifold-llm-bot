@@ -3,6 +3,7 @@ import dspy
 
 from pathlib import Path
 from typing import List, Optional
+from src.backtesting.dataset import load_examples
 
 from src.evaluation import (
     setup_pipeline,
@@ -36,8 +37,14 @@ def evaluate(
     num_threads: int,
     timeout: Optional[int] = None,
 ):
-    examples, predict_market, logger, evalfile_name = setup_pipeline(
-        config_path, parquet_path, max_examples, log_level, "eval", timeout
+    predict_market, logger, evalfile_name, cutoff_date, exclude_groups = setup_pipeline(
+        config_path, log_level, "eval", timeout
+    )
+    examples = load_examples(
+        parquet_path,
+        cutoff_date,
+        exclude_groups,
+        max_examples,
     )
     evaluator = dspy.evaluate.Evaluate(
         devset=examples,

@@ -5,6 +5,7 @@ import datetime
 from google import genai
 import json
 from pathlib import Path
+import concurrent.futures
 
 
 def ai_clean_html(client, html, max_tokens):
@@ -14,6 +15,22 @@ def ai_clean_html(client, html, max_tokens):
         model="gemini-2.0-flash-lite", contents=prompt, config=config
     )
     return response.text
+
+
+class TimeoutError(Exception):
+    """Raised when a function call times out"""
+
+    pass
+
+
+def run_with_timeout(func, timeout, *args, **kwargs):
+    """Execute a function with a timeout."""
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise TimeoutError(f"Operation timed out after {timeout} seconds")
 
 
 class SearchResult:
@@ -47,6 +64,7 @@ class Search:
         num_search_results: int,
         max_html_length: int,
         cutoff_date: Optional[datetime.datetime] = None,
+        timeout: float = 30.0,
     ):
         self.api_key = google_cse_key
         self.cx = google_cse_cx
@@ -54,6 +72,7 @@ class Search:
         self.max_html_length = max_html_length
         self.num_search_results = num_search_results
         self.ai_client = genai.Client(api_key=google_cse_key)
+        self.timeout = timeout
         if cutoff_date:
             self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
         else:
@@ -63,7 +82,13 @@ class Search:
         self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
         return self
 
-    def get_results(self, query: str) -> list[SearchResult]:
+    def set_timeout(self, timeout: float):
+        """Update the timeout value."""
+        self.timeout = timeout
+        return self
+
+    def _execute_get_results(self, query: str) -> list[SearchResult]:
+        """Internal method to execute the search query."""
         response_params = {
             "key": self.api_key,
             "cx": self.cx,
@@ -83,7 +108,12 @@ class Search:
         ]
         return results
 
-    def retrieve_cleaned_html(self, url):
+    def get_results(self, query: str) -> list[SearchResult]:
+        """Get search results with timeout protection."""
+        return run_with_timeout(self._execute_get_results, self.timeout, query)
+
+    def _execute_retrieve_cleaned_html(self, url):
+        """Internal method to retrieve and clean HTML."""
         try:
             response = requests.get(url)
             clean_html = ai_clean_html(
@@ -93,8 +123,14 @@ class Search:
             clean_html = f"Error retrieving or processing HTML: {e}"
         return clean_html
 
+    def retrieve_cleaned_html(self, url):
+        """Retrieve and clean HTML with timeout protection."""
+        return run_with_timeout(self._execute_retrieve_cleaned_html, self.timeout, url)
 
-def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
+
+def init_search(
+    config_path: Path, cutoff_date: datetime.datetime, timeout: float = 30.0
+) -> Search:
     # Load config from file
     with open(config_path) as f:
         config = json.load(f)
@@ -109,6 +145,7 @@ def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
         config["max_search_results"],
         config["max_html_length"],
         cutoff_date=cutoff_date,
+        timeout=timeout,
     )
     return search
 
@@ -120,12 +157,22 @@ def test():
     with open(secret_path) as f:
         secrets = json.load(f)
     search = Search(
-        secrets["google_api_key"], secrets["google_cse_cx"], 3, 10000, cutoff_date
+        secrets["google_api_key"],
+        secrets["google_cse_cx"],
+        3,
+        10000,
+        cutoff_date,
+        timeout=10.0,
     )
-    results = search.get_results(query)
-    print(results)
-    clean_html = search.retrieve_cleaned_html(search.ai_client, results[0].link, 10000)
-    print(clean_html)
+
+    try:
+        results = search.get_results(query)
+        print(results)
+
+        clean_html = search.retrieve_cleaned_html(results[0].link)
+        print(clean_html)
+    except TimeoutError as e:
+        print(f"Operation timed out: {e}")
 
 
 if __name__ == "__main__":
