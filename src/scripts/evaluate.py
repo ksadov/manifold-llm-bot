@@ -56,6 +56,11 @@ def evaluate(
     )
     overall_score, result_triples = evaluator(predict_market, metric=soft_cross_entropy)
     logger.info(f"Overall score: {overall_score}")
+    print("result_triples", result_triples)
+    # filter out examples with no prediction
+    result_triples = [
+        triple for triple in result_triples if triple[1].answer is not None
+    ]
     directional_scores = [validate_directional(*triple) for triple in result_triples]
     avg_directional_score = sum(directional_scores) / len(directional_scores)
     logger.info(f"Average directional score: {avg_directional_score}")
