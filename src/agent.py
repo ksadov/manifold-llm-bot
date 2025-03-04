@@ -103,7 +103,7 @@ def init_dspy(
     unified_web_search: bool,
     use_python_interpreter: bool,
     logger: Optional[Logger] = None,
-    timeout: Optional[int] = None,
+    timeout: Optional[int] = 60,
 ) -> dspy.ReAct:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
