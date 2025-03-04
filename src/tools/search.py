@@ -5,7 +5,8 @@ import datetime
 from google import genai
 import json
 from pathlib import Path
-import concurrent.futures
+
+from src.timeout import run_with_timeout
 
 
 def ai_clean_html(client, html, max_tokens):
@@ -15,22 +16,6 @@ def ai_clean_html(client, html, max_tokens):
         model="gemini-2.0-flash-lite", contents=prompt, config=config
     )
     return response.text
-
-
-class TimeoutError(Exception):
-    """Raised when a function call times out"""
-
-    pass
-
-
-def run_with_timeout(func, timeout, *args, **kwargs):
-    """Execute a function with a timeout."""
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future = executor.submit(func, *args, **kwargs)
-        try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError(f"Operation timed out after {timeout} seconds")
 
 
 class SearchResult:

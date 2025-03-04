@@ -7,6 +7,7 @@ from dspy.utils.callback import BaseCallback
 
 from src.tools.search import Search
 from src.tools.python_interpreter import PythonInterpreter
+from src.timeout import run_with_timeout
 
 
 class MarketPrediction(dspy.Signature):
@@ -97,6 +98,24 @@ class AgentLoggingCallback(BaseCallback):
             self.python_logger.error(exception)
 
 
+class ReActWithTimeout(dspy.ReAct):
+    def __init__(self, *args, **kwargs):
+        self.timeout = kwargs.pop("timeout", 2)
+        print("Timeout set to", self.timeout)
+        super().__init__(*args, **kwargs)
+
+    def _call_with_potential_trajectory_truncation(
+        self, module, trajectory, **input_args
+    ):
+        return run_with_timeout(
+            super()._call_with_potential_trajectory_truncation,
+            self.timeout,
+            module,
+            trajectory,
+            **input_args,
+        )
+
+
 def init_dspy(
     llm_config_path: str,
     search: Search,
@@ -104,7 +123,7 @@ def init_dspy(
     use_python_interpreter: bool,
     logger: Optional[Logger] = None,
     timeout: Optional[int] = 60,
-) -> dspy.ReAct:
+) -> ReActWithTimeout:
     with open(llm_config_path) as f:
         llm_config = json.load(f)
     # DSPY expects OpenAI-compatible endpoints to have the prefix openai/
@@ -114,12 +133,11 @@ def init_dspy(
         api_key=llm_config["api_key"],
         api_base=llm_config["api_base"],
         **llm_config["prompt_params"],
-        timeout=timeout,
     )
     if logger is not None:
-        dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)])
+        dspy.configure(lm=lm, callbacks=[AgentLoggingCallback(logger)], timeout=timeout)
     else:
-        dspy.configure(lm=lm)
+        dspy.configure(lm=lm, timeout=timeout)
 
     def eval_python(code: str) -> Dict[str, Any]:
         interpreter = PythonInterpreter()
@@ -159,7 +177,7 @@ def init_dspy(
     if use_python_interpreter:
         tools.append(eval_python)
 
-    predict_market = dspy.ReAct(
+    predict_market = ReActWithTimeout(
         MarketPrediction,
         tools=tools,
     )
