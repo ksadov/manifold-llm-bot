@@ -11,6 +11,7 @@ class OutcomeType(str, Enum):
     PSEUDO_NUMERIC = "PSEUDO_NUMERIC"
     BOUNTIED_QUESTION = "BOUNTIED_QUESTION"
     POLL = "POLL"
+    MULTI_NUMERIC = "MULTI_NUMERIC"
 
 
 class AddAnswersMode(str, Enum):
@@ -32,7 +33,7 @@ class Fees(BaseModel):
 
 class Fill(BaseModel):
     amount: int
-    matchedBetId: str
+    matchedBetId: Optional[str]
     shares: float
     timestamp: int
 
@@ -132,7 +133,7 @@ class User(BaseModel):
     isBannedFromPosting: Optional[bool] = None
     userDeleted: Optional[bool] = None
     verifiedPhone: Optional[bool] = None
-    creatorTraders: Optional[int] = None
+    creatorTraders: Optional[dict] = None
     signupBonusPaid: Optional[bool] = None
     isBannedFromMana: Optional[bool] = None
     nextLoanCached: Optional[int] = None

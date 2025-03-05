@@ -35,6 +35,7 @@ def place_limit_order(
     market_id: str,
     probability: float,
     amount: int,
+    binary_outcome: str,
     manifold_api_key: str,
     expires_millis_after: Optional[int] = None,
     dry_run: bool = False,
@@ -46,6 +47,7 @@ def place_limit_order(
         "amount": amount,
         "contractId": market_id,
         "limitProb": probability,
+        "outcome": binary_outcome,
     }
     if expires_millis_after:
         post_dict["expiresMillisAfter"] = expires_millis_after
