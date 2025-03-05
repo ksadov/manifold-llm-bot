@@ -6,7 +6,7 @@ from typing import Optional
 from pathlib import Path
 from logging import Logger
 
-from src.calculations import kelly_fraction
+from src.calculations import kelly_bet
 from src.manifold.types import FullMarket, OutcomeType
 from src.tools.search import Search
 from src.manifold.utils import (
@@ -94,25 +94,28 @@ class Bot:
                 self.logger.info(
                     f"Probability estimate for market {market.id}: {probability_estimate}"
                 )
-                bet_amount = max(
-                    kelly_fraction(
-                        probability_estimate, market.probability, self.kelly_alpha
-                    )
-                    * get_my_account(self.manifold_api_key).balance,
+                bankroll = get_my_account(self.manifold_api_key).balance
+                bet_amount, bet_outcome = kelly_bet(
+                    probability_estimate,
+                    market.probability,
+                    self.kelly_alpha,
+                    bankroll,
                     self.max_trade_amount,
                 )
-                bet = place_limit_order(
-                    market.id,
-                    probability_estimate,
-                    bet_amount,
-                    self.manifold_api_key,
-                    expires_millis_after=self.expires_millis_after,
-                    dry_run=self.dry_run,
-                )
-                self.logger.info(f"Placed trade: {bet}")
-                if self.comment_with_reasoning:
-                    place_comment(market.id, reasoning, self.manifold_api_key)
-                    self.logger.info(f"Commented on market: {market.id}")
+                if bet_amount > 0:
+                    bet = place_limit_order(
+                        market.id,
+                        probability_estimate,
+                        bet_amount,
+                        bet_outcome,
+                        self.manifold_api_key,
+                        expires_millis_after=self.expires_millis_after,
+                        dry_run=self.dry_run,
+                    )
+                    self.logger.info(f"Placed trade: {bet}")
+                    if self.comment_with_reasoning:
+                        place_comment(market.id, reasoning, self.manifold_api_key)
+                        self.logger.info(f"Commented on market: {market.id}")
         if markets:
             self.last_search_timestamp = markets[0].createdTime
 

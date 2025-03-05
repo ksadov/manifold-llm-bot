@@ -1,3 +1,6 @@
+from typing import Tuple
+
+
 def kelly_fraction(
     predicted_probability: float, current_market_probability: float, alpha: float
 ) -> float:
@@ -27,12 +30,42 @@ def kelly_fraction(
         return 0.0
 
 
+def kelly_bet(
+    predicted_probability: float,
+    current_market_probability: float,
+    alpha: float,
+    bankroll: float,
+    max_bet_amount: int,
+) -> Tuple[int, str]:
+    """
+    Return the amount to bet and the side to bet on (YES or NO).
+    """
+    f = kelly_fraction(predicted_probability, current_market_probability, alpha)
+    bet = bankroll * f
+    if bet > 0:
+        return min(bet, max_bet_amount), "YES"
+    elif bet < 0:
+        return min(-bet, max_bet_amount), "NO"
+    else:
+        return 0, "NO"
+
+
 def test():
     predicted_probability = 0.6
     current_market_probability = 0.4
     alpha = 1.0
     kelly = kelly_fraction(predicted_probability, current_market_probability, alpha)
     print(f"Kelly: {kelly}")
+    bankroll = 1000
+    max_bet_amount = 100
+    bet_amount, side = kelly_bet(
+        predicted_probability,
+        current_market_probability,
+        alpha,
+        bankroll,
+        max_bet_amount,
+    )
+    print(f"Bet amount: {bet_amount}, side: {side}")
 
 
 if __name__ == "__main__":
