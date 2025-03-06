@@ -1,7 +1,5 @@
 import argparse
-import json
 
-from pandas import cut
 import dspy
 from typing import Optional
 from pathlib import Path
@@ -33,6 +31,7 @@ def optimize(
     num_threads: int,
     save_filename: Path,
     log_level: str,
+    optimizer: str,
     timeout: Optional[int] = None,
 ):
     predict_market, _, _, cutoff_date, exclude_groups = setup_pipeline(
@@ -53,18 +52,32 @@ def optimize(
         exclude_groups,
         max_val_examples,
     )
-    tp = dspy.MIPROv2(
-        metric=metric_for_optimizer,
-        auto="light",
-        num_threads=num_threads,
-    )
-    optimized_predict_market = tp.compile(
-        predict_market,
-        trainset=trainset,
-        valset=valset,
-        max_bootstrapped_demos=0,
-        max_labeled_demos=0,
-    )
+    if optimizer == "MIPROv2":
+        tp = dspy.MIPROv2(
+            metric=metric_for_optimizer,
+            auto="light",
+            num_threads=num_threads,
+        )
+        optimized_predict_market = tp.compile(
+            predict_market,
+            trainset=trainset,
+            valset=valset,
+            max_bootstrapped_demos=0,
+            max_labeled_demos=0,
+        )
+    elif optimizer == "COPRO":
+        tp = dspy.COPRO(
+            metric=metric_for_optimizer,
+            verbose=True,
+        )
+        kwargs = dict(num_threads=num_threads, display_progress=True, display_table=0)
+        optimized_predict_market = tp.compile(
+            predict_market,
+            trainset=trainset,
+            eval_kwargs=kwargs,
+        )
+    else:
+        raise ValueError(f"Unknown optimizer: {optimizer}, expected MIPROv2 or COPRO")
     save_dir = Path("dspy_programs")
     save_dir.mkdir(exist_ok=True)
     optimized_predict_market.save(save_dir / save_filename)
@@ -84,6 +97,7 @@ def main():
     parser.add_argument("--num_threads", type=int, default=1)
     parser.add_argument("--save_filename", type=Path, required=True)
     parser.add_argument("--log_level", type=str, default="INFO")
+    parser.add_argument("--optimizer", type=str, default="MIPROv2")
     parser.add_argument("--timeout", type=int, default=None)
     args = parser.parse_args()
     optimize(
@@ -95,6 +109,7 @@ def main():
         args.num_threads,
         args.save_filename,
         args.log_level,
+        args.optimizer,
         args.timeout,
     )
 
