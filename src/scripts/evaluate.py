@@ -35,10 +35,9 @@ def evaluate(
     max_examples: Optional[int],
     log_level: str,
     num_threads: int,
-    timeout: Optional[int] = None,
 ):
     predict_market, logger, evalfile_name, cutoff_date, exclude_groups = setup_pipeline(
-        config_path, log_level, "eval", timeout
+        config_path, log_level, "eval"
     )
     examples = load_examples(
         parquet_path,
@@ -82,7 +81,6 @@ def main():
     parser.add_argument("--max_examples", type=int)
     parser.add_argument("--log_level", type=str, default="INFO")
     parser.add_argument("--num_threads", type=int, default=1)
-    parser.add_argument("--timeout", type=int, default=None)
     args = parser.parse_args()
     evaluate(
         args.config_path,
@@ -90,7 +88,6 @@ def main():
         args.max_examples,
         args.log_level,
         args.num_threads,
-        args.timeout,
     )
 
 

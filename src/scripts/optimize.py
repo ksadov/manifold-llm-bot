@@ -32,7 +32,6 @@ def optimize(
     save_filename: Path,
     log_level: str,
     optimizer: str,
-    timeout: Optional[int] = None,
 ):
     predict_market, _, _, cutoff_date, exclude_groups = setup_pipeline(
         config_path,
@@ -98,7 +97,6 @@ def main():
     parser.add_argument("--save_filename", type=Path, required=True)
     parser.add_argument("--log_level", type=str, default="INFO")
     parser.add_argument("--optimizer", type=str, default="MIPROv2")
-    parser.add_argument("--timeout", type=int, default=None)
     args = parser.parse_args()
     optimize(
         args.config_path,
@@ -110,7 +108,6 @@ def main():
         args.save_filename,
         args.log_level,
         args.optimizer,
-        args.timeout,
     )
 
 

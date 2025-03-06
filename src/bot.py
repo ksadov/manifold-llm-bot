@@ -36,7 +36,6 @@ class Bot:
         dry_run: bool,
         unified_web_search: bool,
         use_python_interpreter: bool,
-        timeout: Optional[int],
     ):
         self.logger = logger
         self.manifold_api_key = manifold_api_key
@@ -58,7 +57,6 @@ class Bot:
             unified_web_search,
             use_python_interpreter,
             logger,
-            timeout,
         )
 
     def get_probability_estimate(self, market: FullMarket):
@@ -156,5 +154,4 @@ def init_from_config(config: dict, logger: Logger) -> Bot:
         dry_run=config["bet"]["dry_run"],
         unified_web_search=config["unified_web_search"],
         use_python_interpreter=config["use_python_interpreter"],
-        timeout=config["trading_timeout"],
     )
