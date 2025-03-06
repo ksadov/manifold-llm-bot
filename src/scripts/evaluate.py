@@ -59,8 +59,11 @@ def evaluate(
     print("result_triples", result_triples)
     # filter out examples with no prediction
     result_triples = [
-        triple for triple in result_triples if triple[1].answer is not None
+        triple
+        for triple in result_triples
+        if hasattr(triple[1], "answer") and triple[1].answer is not None
     ]
+    logger.info(f"Failed to predict {len(examples) - len(result_triples)} examples")
     directional_scores = [validate_directional(*triple) for triple in result_triples]
     avg_directional_score = sum(directional_scores) / len(directional_scores)
     logger.info(f"Average directional score: {avg_directional_score}")
