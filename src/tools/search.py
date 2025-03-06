@@ -1,28 +1,25 @@
 from calendar import c
+import html
 from typing import Optional
 import requests
 import datetime
-from google import genai
 import json
 from pathlib import Path
+import dspy
 
 
-def ai_clean_html(client, html, max_tokens):
-    config = genai.types.GenerateContentConfig(max_output_tokens=max_tokens)
-    prompt = f"Extract only the human-readable text from this HTML document (excluding CSS, Javascript, HTML tags, etc) and format it with Markdown syntax:\n\n{html}"
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite", contents=prompt, config=config
-    )
-    return response.text
+class CleanHTML(dspy.Signature):
+    "Extract the main text content from this HTML, preserving paragraph structure but removing all HTML tags, scripts, styles, and extraneous formatting."
+    html: str = dspy.InputField()
+    clean_text: str = dspy.OutputField()
 
 
 class SearchResult:
-    def __init__(self, item: dict, ai_client, max_html_length: Optional[int]):
+    def __init__(self, item: dict):
         self.title = item.get("og:title", item["title"])
         self.link = item["link"]
         self.snippet = item.get("og:description", item["snippet"])
         self.retrieved_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.ai_client = ai_client
 
     def to_dict(self):
         return {
@@ -53,7 +50,8 @@ class Search:
         self.endpoint = "https://www.googleapis.com/customsearch/v1"
         self.max_html_length = max_html_length
         self.num_search_results = num_search_results
-        self.ai_client = genai.Client(api_key=google_cse_key)
+        self.lm = dspy.LM("gemini/gemini-2.0-flash-lite", api_key=google_cse_key)
+        self.html_cleaner = dspy.Predict(CleanHTML)
         if cutoff_date:
             self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
         else:
@@ -77,18 +75,20 @@ class Search:
             params=response_params,
         )
         res.raise_for_status()
-        results = [
-            SearchResult(item, self.ai_client, self.max_html_length)
-            for item in res.json()["items"]
-        ]
+        results = [SearchResult(item) for item in res.json()["items"]]
         return results
+
+    def ai_clean_html(self, html: str) -> str:
+        if self.max_html_length is not None and len(html) > self.max_html_length:
+            html = html[: self.max_html_length]
+        with dspy.context(lm=self.lm):
+            clean_text = self.html_cleaner(html=html)
+        return clean_text
 
     def retrieve_cleaned_html(self, url):
         try:
             response = requests.get(url)
-            clean_html = ai_clean_html(
-                self.ai_client, response.text, self.max_html_length
-            )
+            clean_html = self.ai_clean_html(response.text)
         except Exception as e:
             clean_html = f"Error retrieving or processing HTML: {e}"
         return clean_html
@@ -123,15 +123,16 @@ def test():
         secrets["google_api_key"],
         secrets["google_cse_cx"],
         3,
-        10000,
+        None,
         cutoff_date,
     )
 
     results = search.get_results(query)
-    print(results)
 
-    clean_html = search.retrieve_cleaned_html(results[0].link)
-    print(clean_html)
+    for result in results:
+        clean_html = search.retrieve_cleaned_html(result.link)
+        print(result)
+        print(clean_html)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,3 @@
 dspy
 beautifulsoup4
 scikit-learn
-google-genai
