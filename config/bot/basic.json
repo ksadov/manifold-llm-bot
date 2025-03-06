@@ -2,7 +2,7 @@
   "name": "basic_bot",
   "secrets_path": "config/secrets/basic_secrets.json",
   "llm_config_path": "config/llm/gpt-4o-mini.json",
-  "dspy_program_path": "dspy_programs/examples_50.json",
+  "dspy_program_path": null,
   "market_filters": {
     "exclude_groups": [
       "personal",
@@ -20,7 +20,6 @@
   "unified_web_search": false,
   "use_python_interpreter": false,
   "max_html_length": 20000,
-  "trading_timeout": 300,
   "bet": {
     "kelly_alpha": 0.1,
     "max_trade_amount": 10,
