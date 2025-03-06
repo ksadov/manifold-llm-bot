@@ -56,7 +56,6 @@ def evaluate(
     )
     overall_score, result_triples = evaluator(predict_market, metric=soft_cross_entropy)
     logger.info(f"Overall score: {overall_score}")
-    print("result_triples", result_triples)
     # filter out examples with no prediction
     result_triples = [
         triple

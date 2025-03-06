@@ -178,8 +178,7 @@ def init_dspy(
         tools = [web_search]
 
     else:
-        # tools = [get_relevant_urls, retrieve_web_content]
-        tools = [get_relevant_urls]
+        tools = [get_relevant_urls, retrieve_web_content]
 
     if use_python_interpreter:
         tools.append(eval_python)
