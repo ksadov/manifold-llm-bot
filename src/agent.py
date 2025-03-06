@@ -131,7 +131,9 @@ def init_dspy(
         result_dicts = [result.to_dict() for result in results]
         return result_dicts
 
-    def retrieve_web_content(url_list: list[str]) -> list[dict]:
+    def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
+        if isinstance(url_list, dict) and "items" in url_list:
+            url_list = list(url_list["items"])
         cleaned_html = [search.retrieve_cleaned_html(url) for url in url_list]
         result_dicts = [
             {"url": url, "cleaned_html_content": html}
