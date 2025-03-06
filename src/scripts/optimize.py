@@ -37,7 +37,6 @@ def optimize(
         config_path,
         log_level,
         "train",
-        timeout,
     )
     trainset = load_examples(
         train_parquet_path,
