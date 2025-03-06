@@ -56,7 +56,6 @@ def setup_pipeline(
     config_path: Path,
     log_level: str,
     split: str,
-    timeout: Optional[int] = None,
 ) -> Tuple[List[dspy.Example], dspy.ReAct, Logger, Optional[str]]:
     with open(config_path) as f:
         config = json.load(f)
@@ -89,7 +88,6 @@ def setup_pipeline(
         config["unified_web_search"],
         config["use_python_interpreter"],
         logger,
-        timeout=timeout,
     )
     return (
         predict_market,
