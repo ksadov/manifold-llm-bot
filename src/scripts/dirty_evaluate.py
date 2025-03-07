@@ -67,13 +67,24 @@ def run_with_timeout(func, args=None, kwargs=None, timeout=None):
 
 def score_stats(scores):
     """
-    Return mean and STD of scores
+    Return mean and 95% confidence interval for a list of scores.
     """
     if not scores:
         return 0, 0
-    mean = sum(scores) / len(scores)
-    std = (sum((score - mean) ** 2 for score in scores) / len(scores)) ** 0.5
-    return mean, std
+    n = len(scores)
+    mean = sum(scores) / n
+
+    # Calculate standard deviation
+    variance = sum((x - mean) ** 2 for x in scores) / n
+    std_dev = variance**0.5
+
+    # Calculate standard error of the mean
+    std_error = std_dev / (n**0.5)
+
+    # Calculate 95% confidence interval (1.96 is the z-score for 95% CI)
+    confidence = 1.96 * std_error
+
+    return mean, confidence
 
 
 def process_example(args):
@@ -231,8 +242,8 @@ def evaluate(
     logger.info("Evaluation results saved to %s", evalfile_name)
 
     # Calculate statistics
-    cross_entropy_mean, cross_entropy_std = score_stats(cross_entropy_scores)
-    directional_mean, directional_std = score_stats(directional_scores)
+    cross_entropy_mean, cross_entropy_confidence = score_stats(cross_entropy_scores)
+    directional_mean, directional_confidence = score_stats(directional_scores)
 
     # Save failed examples to a separate file
     if failed_examples:
@@ -262,9 +273,11 @@ def evaluate(
         f"Average processing time: {sum(processing_times)/len(processing_times):.2f} seconds"
     )
     logger.info(
-        f"Soft cross entropy: mean {cross_entropy_mean}, std {cross_entropy_std}"
+        f"Soft cross entropy: mean {cross_entropy_mean}, confidence {cross_entropy_confidence}"
     )
-    logger.info(f"Directional: mean {directional_mean}, std {directional_std}")
+    logger.info(
+        f"Directional: mean {directional_mean}, confidence {directional_confidence}"
+    )
 
     return result_triples
 
