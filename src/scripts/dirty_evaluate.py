@@ -4,6 +4,8 @@ from typing import List, Optional, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import threading
+import signal
+import sys
 from src.backtesting.dataset import load_examples
 from src.evaluation import (
     setup_pipeline,
@@ -15,6 +17,24 @@ from src.scripts.evaluate import jsonify_eval_outputs
 
 class TimeoutException(Exception):
     pass
+
+
+# Flag to track if Ctrl+C was pressed
+ctrl_c_pressed = False
+
+
+def signal_handler(sig, frame):
+    """Handle SIGINT (Ctrl+C) signal."""
+    global ctrl_c_pressed
+    if not ctrl_c_pressed:
+        print(
+            "\nCtrl+C detected. Finishing current tasks and preparing to exit gracefully..."
+        )
+        ctrl_c_pressed = True
+    else:
+        # If Ctrl+C is pressed a second time, exit immediately
+        print("\nForced exit. Results may be incomplete.")
+        sys.exit(1)
 
 
 def run_with_timeout(func, args=None, kwargs=None, timeout=None):
@@ -155,6 +175,9 @@ def evaluate(
     num_threads: int,
     timeout: Optional[int],
 ):
+    # Set up the signal handler for Ctrl+C
+    signal.signal(signal.SIGINT, signal_handler)
+
     predict_market, logger, evalfile_name, cutoff_date, exclude_groups = setup_pipeline(
         config_path, log_level, "eval"
     )
@@ -173,71 +196,94 @@ def evaluate(
     errors_count = 0
     processing_times = []
     failed_examples = []
+    completed_count = 0
+    total_examples = len(examples)
 
     # Prepare arguments for parallel processing
     process_args = [(example, predict_market, timeout) for example in examples]
 
     # Use ThreadPoolExecutor for parallel processing
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures = [executor.submit(process_example, arg) for arg in process_args]
+        # Submit all tasks
+        futures_to_args = {
+            executor.submit(process_example, arg): arg for arg in process_args
+        }
 
-        # Use tqdm to show progress
-        for future in tqdm(
-            as_completed(futures), total=len(futures), desc="Processing examples"
-        ):
-            (
-                example,
-                prediction,
-                cross_entropy_score,
-                directional_score,
-                status,
-                error_msg,
-                elapsed,
-            ) = future.result()
+        # Track progress using tqdm
+        progress_bar = tqdm(total=total_examples, desc="Processing examples")
 
-            processing_times.append(elapsed)
+        try:
+            # Process completed futures as they come in
+            for future in as_completed(futures_to_args):
+                if ctrl_c_pressed:
+                    # Cancel any pending futures when Ctrl+C is pressed
+                    for f in futures_to_args.keys():
+                        if not f.done():
+                            f.cancel()
+                    logger.info("Ctrl+C detected. Processing partial results...")
+                    break
 
-            if status == "timeout":
-                timeouts_count += 1
-                logger.warning(
-                    f"Example timed out after {timeout} seconds: {example.question[:50]}..."
-                )
-                failed_examples.append(
-                    {
-                        "question": example.question,
-                        "status": status,
-                        "error": error_msg,
-                        "elapsed": elapsed,
-                    }
-                )
-                continue
-            elif status == "error":
-                errors_count += 1
-                logger.error(
-                    f"Example errored: {example.question[:50]}... Error: {error_msg}"
-                )
-                failed_examples.append(
-                    {
-                        "question": example.question,
-                        "status": status,
-                        "error": error_msg,
-                        "elapsed": elapsed,
-                    }
-                )
-                continue
+                (
+                    example,
+                    prediction,
+                    cross_entropy_score,
+                    directional_score,
+                    status,
+                    error_msg,
+                    elapsed,
+                ) = future.result()
 
-            predictions.append(prediction)
+                completed_count += 1
+                processing_times.append(elapsed)
+                progress_bar.update(1)
 
-            if cross_entropy_score is not None:
-                cross_entropy_scores.append(cross_entropy_score)
+                if status == "timeout":
+                    timeouts_count += 1
+                    logger.warning(
+                        f"Example timed out after {timeout} seconds: {example.question[:50]}..."
+                    )
+                    failed_examples.append(
+                        {
+                            "question": example.question,
+                            "status": status,
+                            "error": error_msg,
+                            "elapsed": elapsed,
+                        }
+                    )
+                    continue
+                elif status == "error":
+                    errors_count += 1
+                    logger.error(
+                        f"Example errored: {example.question[:50]}... Error: {error_msg}"
+                    )
+                    failed_examples.append(
+                        {
+                            "question": example.question,
+                            "status": status,
+                            "error": error_msg,
+                            "elapsed": elapsed,
+                        }
+                    )
+                    continue
 
-            if directional_score is not None:
-                directional_scores.append(directional_score)
+                predictions.append(prediction)
 
-            if prediction is not None:
-                result_triples.append((example, prediction, cross_entropy_score))
+                if cross_entropy_score is not None:
+                    cross_entropy_scores.append(cross_entropy_score)
+
+                if directional_score is not None:
+                    directional_scores.append(directional_score)
+
+                if prediction is not None:
+                    result_triples.append((example, prediction, cross_entropy_score))
+
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+        finally:
+            progress_bar.close()
 
     # Save results
+    logger.info(f"Saving results from {len(result_triples)} completed examples")
     jsonify_eval_outputs(result_triples, evalfile_name)
     logger.info("Evaluation results saved to %s", evalfile_name)
 
@@ -258,20 +304,32 @@ def evaluate(
             json.dump(failed_examples, f, indent=2)
         logger.info(f"Failed examples saved to {failed_file}")
 
+    # Log completion status
+    if ctrl_c_pressed:
+        logger.info(
+            f"Evaluation stopped early due to Ctrl+C. Processed {completed_count}/{total_examples} examples."
+        )
+    else:
+        logger.info(
+            f"Processed all {total_examples} examples with {num_threads} threads"
+        )
+
     # Log results
-    logger.info(f"Processed {len(examples)} examples with {num_threads} threads")
     logger.info(
-        f"Timed out: {timeouts_count} examples ({timeouts_count/len(examples)*100:.2f}%)"
+        f"Timed out: {timeouts_count} examples ({timeouts_count/completed_count*100:.2f}%)"
     )
     logger.info(
-        f"Errors: {errors_count} examples ({errors_count/len(examples)*100:.2f}%)"
+        f"Errors: {errors_count} examples ({errors_count/completed_count*100:.2f}%)"
     )
     logger.info(
-        f"Successful: {len(examples) - timeouts_count - errors_count} examples ({(len(examples) - timeouts_count - errors_count)/len(examples)*100:.2f}%)"
+        f"Successful: {completed_count - timeouts_count - errors_count} examples ({(completed_count - timeouts_count - errors_count)/completed_count*100:.2f}%)"
     )
-    logger.info(
-        f"Average processing time: {sum(processing_times)/len(processing_times):.2f} seconds"
-    )
+
+    if processing_times:
+        logger.info(
+            f"Average processing time: {sum(processing_times)/len(processing_times):.2f} seconds"
+        )
+
     logger.info(
         f"Soft cross entropy: mean {cross_entropy_mean}, confidence {cross_entropy_confidence}"
     )
