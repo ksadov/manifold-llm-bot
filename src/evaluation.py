@@ -34,12 +34,12 @@ def soft_cross_entropy(example, pred, trace=None):
     Compute the cross entropy loss for soft targets.
 
     Parameters:
-    - y_true: Array of ground truth probabilities (values in [0, 1]).
-    - p_pred: Array of predicted probabilities (values in [0, 1]).
+    - y_true: ground truth probability (values in [0, 1]).
+    - p_pred: predicted probability (values in [0, 1]).
     - epsilon: Small value to avoid log(0).
 
     Returns:
-    - Array of loss values for each instance.
+    - flipped loss, because dspy optimizes for higher values.
     """
     epsilon = 1e-15
     p_pred = pred["answer"]
@@ -50,6 +50,10 @@ def soft_cross_entropy(example, pred, trace=None):
     # for our optimizer, higher is better
     flipped_loss = -loss
     return flipped_loss
+
+
+def l1_distance(example, pred, trace=None):
+    return abs(example["probability"] - pred["answer"])
 
 
 def setup_pipeline(

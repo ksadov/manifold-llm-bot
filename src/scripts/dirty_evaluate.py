@@ -11,6 +11,7 @@ from src.evaluation import (
     setup_pipeline,
     soft_cross_entropy,
     validate_directional,
+    l1_distance,
 )
 from src.scripts.evaluate import jsonify_eval_outputs
 
@@ -110,7 +111,7 @@ def score_stats(scores):
 def process_example(args):
     """
     Process a single example with timeout and error handling.
-    Returns a tuple (example, prediction, cross_entropy_score, directional_score, status, error_msg, elapsed)
+    Returns a tuple (example, prediction, cross_entropy_score, directional_score, l1_score, status, error_msg, elapsed)
     where status is one of "success", "timeout", or "error"
     """
     example, predict_market, timeout = args
@@ -131,10 +132,11 @@ def process_example(args):
             )
             cross_entropy_score = soft_cross_entropy(example, prediction)
             directional_score = validate_directional(example, prediction)
-            return prediction, cross_entropy_score, directional_score
+            l1_score = l1_distance(example, prediction)
+            return prediction, cross_entropy_score, directional_score, l1_score
 
         # Run the function with a timeout
-        prediction, cross_entropy_score, directional_score = run_with_timeout(
+        prediction, cross_entropy_score, directional_score, l1_score = run_with_timeout(
             process_func, timeout=timeout
         )
 
@@ -142,6 +144,7 @@ def process_example(args):
         prediction = None
         cross_entropy_score = None
         directional_score = None
+        l1_score = None
         status = "timeout"
         error_msg = "Evaluation timed out"
 
@@ -149,6 +152,7 @@ def process_example(args):
         prediction = None
         cross_entropy_score = None
         directional_score = None
+        l1_score = None
         status = "error"
         error_msg = str(e)
 
@@ -161,6 +165,7 @@ def process_example(args):
         prediction,
         cross_entropy_score,
         directional_score,
+        l1_score,
         status,
         error_msg,
         elapsed,
@@ -191,6 +196,7 @@ def evaluate(
     predictions = []
     cross_entropy_scores = []
     directional_scores = []
+    l1_scores = []
     result_triples = []
     timeouts_count = 0
     errors_count = 0
@@ -228,6 +234,7 @@ def evaluate(
                     prediction,
                     cross_entropy_score,
                     directional_score,
+                    l1_score,
                     status,
                     error_msg,
                     elapsed,
@@ -274,6 +281,9 @@ def evaluate(
                 if directional_score is not None:
                     directional_scores.append(directional_score)
 
+                if l1_score is not None:
+                    l1_scores.append(l1_score)
+
                 if prediction is not None:
                     result_triples.append((example, prediction, cross_entropy_score))
 
@@ -290,6 +300,7 @@ def evaluate(
     # Calculate statistics
     cross_entropy_mean, cross_entropy_confidence = score_stats(cross_entropy_scores)
     directional_mean, directional_confidence = score_stats(directional_scores)
+    l1_mean, l1_confidence = score_stats(l1_scores)
 
     # Save failed examples to a separate file
     if failed_examples:
@@ -331,11 +342,12 @@ def evaluate(
         )
 
     logger.info(
-        f"Soft cross entropy: mean {cross_entropy_mean}, confidence {cross_entropy_confidence}"
+        f"Soft cross entropy: mean {cross_entropy_mean}, 95% CI +-{cross_entropy_confidence}"
     )
     logger.info(
-        f"Directional: mean {directional_mean}, confidence {directional_confidence}"
+        f"Directional: mean {directional_mean}, 95% CI +-{directional_confidence}"
     )
+    logger.info(f"Absolute difference: mean {l1_mean}, 95% CI +-{l1_confidence}")
 
     return result_triples
 
