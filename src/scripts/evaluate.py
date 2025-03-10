@@ -66,7 +66,9 @@ def evaluate(
     directional_scores = [validate_directional(*triple) for triple in result_triples]
     brier_scores = [brier_score(*triple) for triple in result_triples]
     avg_directional_score = sum(directional_scores) / len(directional_scores)
+    avg_brier_score = sum(brier_scores) / len(brier_scores)
     logger.info(f"Average directional score: {avg_directional_score}")
+    logger.info(f"Average brier score: {avg_brier_score}")
     if evalfile_name:
         jsonify_eval_outputs(result_triples, evalfile_name)
     return overall_score
