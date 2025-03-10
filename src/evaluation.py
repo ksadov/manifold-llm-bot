@@ -14,6 +14,22 @@ from src.tools.search import init_search
 from src.logging import create_logger
 
 
+def brier_score(example, pred, trace=None):
+    """
+    Compute the Brier score.
+
+    Parameters:
+    - y_true: ground truth probability (values in [0, 1]).
+    - p_pred: predicted probability (values in [0, 1]).
+
+    Returns:
+    - Brier score.
+    """
+    p_pred = pred["answer"]
+    resolution_value = 1 if example["resolution"] == "YES" else 0
+    return (p_pred - resolution_value) ** 2
+
+
 def validate_directional(example, pred, trace=None) -> int:
     pred_answer = pred["answer"]
     resolution = example["resolution"]
@@ -50,10 +66,6 @@ def soft_cross_entropy(example, pred, trace=None):
     # for our optimizer, higher is better
     flipped_loss = -loss
     return flipped_loss
-
-
-def l1_distance(example, pred, trace=None):
-    return abs(example["probability"] - pred["answer"])
 
 
 def setup_pipeline(

@@ -9,6 +9,7 @@ from src.evaluation import (
     setup_pipeline,
     soft_cross_entropy,
     validate_directional,
+    brier_score,
 )
 
 
@@ -63,6 +64,7 @@ def evaluate(
     ]
     logger.info(f"Failed to predict {len(examples) - len(result_triples)} examples")
     directional_scores = [validate_directional(*triple) for triple in result_triples]
+    brier_scores = [brier_score(*triple) for triple in result_triples]
     avg_directional_score = sum(directional_scores) / len(directional_scores)
     logger.info(f"Average directional score: {avg_directional_score}")
     if evalfile_name:
