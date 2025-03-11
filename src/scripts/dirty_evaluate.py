@@ -11,8 +11,8 @@ from src.evaluation import (
     setup_pipeline,
     soft_cross_entropy,
     validate_directional,
-    l1_distance,
 )
+from src.evaluation import brier_score as brier_score_fn
 from src.scripts.evaluate import jsonify_eval_outputs
 
 
@@ -114,7 +114,7 @@ def process_example(args):
     Returns a tuple (example, prediction, cross_entropy_score, directional_score, l1_score, status, error_msg, elapsed)
     where status is one of "success", "timeout", or "error"
     """
-    example, predict_market, timeout = args
+    example, predict_market, timeout, calculate_cross_entropy = args
     error_msg = None
     status = "success"
 
@@ -130,21 +130,24 @@ def process_example(args):
                 creatorUsername=example.creatorUsername,
                 comments=example.comments,
             )
-            cross_entropy_score = soft_cross_entropy(example, prediction)
+            if calculate_cross_entropy:
+                cross_entropy_score = soft_cross_entropy(example, prediction)
+            else:
+                cross_entropy_score = None
             directional_score = validate_directional(example, prediction)
-            l1_score = l1_distance(example, prediction)
-            return prediction, cross_entropy_score, directional_score, l1_score
+            brier_score = brier_score_fn(example, prediction)
+            return prediction, cross_entropy_score, directional_score, brier_score
 
         # Run the function with a timeout
-        prediction, cross_entropy_score, directional_score, l1_score = run_with_timeout(
-            process_func, timeout=timeout
+        prediction, cross_entropy_score, directional_score, brier_score = (
+            run_with_timeout(process_func, timeout=timeout)
         )
 
     except TimeoutException:
         prediction = None
         cross_entropy_score = None
         directional_score = None
-        l1_score = None
+        brier_score = None
         status = "timeout"
         error_msg = "Evaluation timed out"
 
@@ -152,7 +155,7 @@ def process_example(args):
         prediction = None
         cross_entropy_score = None
         directional_score = None
-        l1_score = None
+        brier_score = None
         status = "error"
         error_msg = str(e)
 
@@ -165,7 +168,7 @@ def process_example(args):
         prediction,
         cross_entropy_score,
         directional_score,
-        l1_score,
+        brier_score,
         status,
         error_msg,
         elapsed,
@@ -178,6 +181,8 @@ def evaluate(
     max_examples: Optional[int],
     log_level: str,
     num_threads: int,
+    trade_from_start: bool,
+    min_num_trades: Optional[int],
     timeout: Optional[int],
 ):
     # Set up the signal handler for Ctrl+C
@@ -190,13 +195,15 @@ def evaluate(
         parquet_path,
         cutoff_date,
         exclude_groups,
+        trade_from_start,
         max_examples,
+        min_num_trades,
     )
 
     predictions = []
     cross_entropy_scores = []
     directional_scores = []
-    l1_scores = []
+    brier_scores = []
     result_triples = []
     timeouts_count = 0
     errors_count = 0
@@ -206,7 +213,9 @@ def evaluate(
     total_examples = len(examples)
 
     # Prepare arguments for parallel processing
-    process_args = [(example, predict_market, timeout) for example in examples]
+    process_args = [
+        (example, predict_market, timeout, not trade_from_start) for example in examples
+    ]
 
     # Use ThreadPoolExecutor for parallel processing
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
@@ -234,7 +243,7 @@ def evaluate(
                     prediction,
                     cross_entropy_score,
                     directional_score,
-                    l1_score,
+                    brier_score,
                     status,
                     error_msg,
                     elapsed,
@@ -281,8 +290,8 @@ def evaluate(
                 if directional_score is not None:
                     directional_scores.append(directional_score)
 
-                if l1_score is not None:
-                    l1_scores.append(l1_score)
+                if brier_score is not None:
+                    brier_scores.append(brier_score)
 
                 if prediction is not None:
                     result_triples.append((example, prediction, cross_entropy_score))
@@ -298,9 +307,10 @@ def evaluate(
     logger.info("Evaluation results saved to %s", evalfile_name)
 
     # Calculate statistics
-    cross_entropy_mean, cross_entropy_confidence = score_stats(cross_entropy_scores)
+    if cross_entropy_scores:
+        cross_entropy_mean, cross_entropy_confidence = score_stats(cross_entropy_scores)
     directional_mean, directional_confidence = score_stats(directional_scores)
-    l1_mean, l1_confidence = score_stats(l1_scores)
+    brier_mean, brier_confidence = score_stats(brier_scores)
 
     # Save failed examples to a separate file
     if failed_examples:
@@ -341,13 +351,14 @@ def evaluate(
             f"Average processing time: {sum(processing_times)/len(processing_times):.2f} seconds"
         )
 
-    logger.info(
-        f"Soft cross entropy: mean {cross_entropy_mean}, 95% CI +-{cross_entropy_confidence}"
-    )
+    if cross_entropy_scores:
+        logger.info(
+            f"Soft cross entropy: mean {cross_entropy_mean}, 95% CI +-{cross_entropy_confidence}"
+        )
     logger.info(
         f"Directional: mean {directional_mean}, 95% CI +-{directional_confidence}"
     )
-    logger.info(f"Absolute difference: mean {l1_mean}, 95% CI +-{l1_confidence}")
+    logger.info(f"Brier score: mean {brier_mean}, 95% CI +-{brier_confidence}")
 
     return result_triples
 
@@ -364,6 +375,8 @@ def main():
     parser.add_argument("--log_level", type=str, default="INFO")
     parser.add_argument("--num_threads", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=None)
+    parser.add_argument("--random_snapshot", action="store_true")
+    parser.add_argument("--min_num_trades", type=int, default=10)
     args = parser.parse_args()
 
     evaluate(
@@ -372,6 +385,8 @@ def main():
         args.max_examples,
         args.log_level,
         args.num_threads,
+        not args.random_snapshot,
+        args.min_num_trades,
         args.timeout,
     )
 
