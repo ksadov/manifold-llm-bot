@@ -23,10 +23,17 @@ def brier_score(example, pred, trace=None):
     - p_pred: predicted probability (values in [0, 1]).
 
     Returns:
-    - Brier score.
+    - Brier score, or None if the resolution is not YES or NO or the prediction is not
+      in [0, 1].
     """
     p_pred = pred["answer"]
-    resolution_value = 1 if example["resolution"] == "YES" else 0
+    resolution_value = (
+        1
+        if example["resolution"] == "YES"
+        else 0 if example["resolution"] == "NO" else None
+    )
+    if resolution_value is None or p_pred > 1:
+        return None
     return (p_pred - resolution_value) ** 2
 
 
