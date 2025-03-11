@@ -294,7 +294,7 @@ def evaluate(
                     brier_scores.append(brier_score)
 
                 if prediction is not None:
-                    result_triples.append((example, prediction, cross_entropy_score))
+                    result_triples.append((example, prediction, brier_score))
 
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
