@@ -69,6 +69,8 @@ def can_use(
     groupSlugs: Iterable[str],
     cutoff_time: datetime.datetime,
     exclude_groups: Iterable[str],
+    yes_no_resolution: bool,
+    resolution: str,
     trade_history: list[dict],
     min_num_trades: Optional[int] = None,
 ) -> bool:
@@ -80,6 +82,9 @@ def can_use(
             return False
     if min_num_trades is not None and len(trade_history) < min_num_trades:
         return False
+    if yes_no_resolution:
+        if resolution != "YES" and resolution != "NO":
+            return False
     return True
 
 
@@ -88,6 +93,7 @@ def load_examples(
     cutoff_date: Optional[datetime.datetime],
     exclude_groups: Iterable[str],
     trade_from_start: bool,
+    yes_no_resolution: bool,
     max_examples: Optional[int] = None,
     min_num_trades: Optional[int] = None,
 ):
@@ -102,6 +108,8 @@ def load_examples(
             row["groupSlugs"],
             cutoff_date,
             exclude_groups,
+            yes_no_resolution,
+            row["resolution"],
             trade_history,
             min_num_trades,
         ):
@@ -117,7 +125,7 @@ def load_examples(
                     row["resolution"],
                     trade_history,
                     row["comments"],
-                    timestamp,
+                    timestamp=timestamp,
                 )
             )
     return examples
@@ -139,6 +147,7 @@ def test(parquet_path):
         cutoff_time,
         exclude_groups,
         trade_from_start,
+        yes_no_resolution=True,
         max_examples=max_examples,
         min_num_trades=min_num_trades,
     )

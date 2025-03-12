@@ -14,6 +14,28 @@ from src.tools.search import init_search
 from src.logging import create_logger
 
 
+def score_stats(scores):
+    """
+    Return mean and 95% confidence interval for a list of scores.
+    """
+    if not scores:
+        return 0, 0
+    n = len(scores)
+    mean = sum(scores) / n
+
+    # Calculate standard deviation
+    variance = sum((x - mean) ** 2 for x in scores) / n
+    std_dev = variance**0.5
+
+    # Calculate standard error of the mean
+    std_error = std_dev / (n**0.5)
+
+    # Calculate 95% confidence interval (1.96 is the z-score for 95% CI)
+    confidence = 1.96 * std_error
+
+    return mean, confidence
+
+
 def brier_score(example, pred, trace=None):
     """
     Compute the Brier score.
