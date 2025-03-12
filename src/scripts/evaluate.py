@@ -1,4 +1,6 @@
 import json
+
+from matplotlib import use
 import dspy
 
 from pathlib import Path
@@ -10,6 +12,7 @@ from src.evaluation import (
     soft_cross_entropy,
     validate_directional,
     brier_score,
+    score_stats,
 )
 
 
@@ -36,6 +39,9 @@ def evaluate(
     max_examples: Optional[int],
     log_level: str,
     num_threads: int,
+    use_brier: bool,
+    trade_from_start: bool,
+    min_num_trades: int,
 ):
     predict_market, logger, evalfile_name, cutoff_date, exclude_groups = setup_pipeline(
         config_path, log_level, "eval"
@@ -44,7 +50,10 @@ def evaluate(
         parquet_path,
         cutoff_date,
         exclude_groups,
+        trade_from_start,
+        use_brier,
         max_examples,
+        min_num_trades,
     )
     evaluator = dspy.evaluate.Evaluate(
         devset=examples,
@@ -54,7 +63,9 @@ def evaluate(
         return_outputs=True,
         max_errors=len(examples),
     )
-    overall_score, result_triples = evaluator(predict_market, metric=soft_cross_entropy)
+    overall_score, result_triples = evaluator(
+        predict_market, metric=brier_score if use_brier else soft_cross_entropy
+    )
     logger.info(f"Overall score: {overall_score}")
     # filter out examples with no prediction
     result_triples = [
@@ -63,12 +74,16 @@ def evaluate(
         if hasattr(triple[1], "answer") and triple[1].answer is not None
     ]
     logger.info(f"Failed to predict {len(examples) - len(result_triples)} examples")
+    if len(result_triples) == 0:
+        logger.error("No examples to evaluate")
+        return
+    score_mean, score_confidence = score_stats([triple[2] for triple in result_triples])
+    logger.info(f"Score: mean {score_mean}, 95% CI +-{score_confidence}")
     directional_scores = [validate_directional(*triple) for triple in result_triples]
-    brier_scores = [brier_score(*triple) for triple in result_triples]
-    avg_directional_score = sum(directional_scores) / len(directional_scores)
-    avg_brier_score = sum(brier_scores) / len(brier_scores)
-    logger.info(f"Average directional score: {avg_directional_score}")
-    logger.info(f"Average brier score: {avg_brier_score}")
+    directional_mean, directional_confidence = score_stats(directional_scores)
+    logger.info(
+        f"Directional: mean {directional_mean}, 95% CI +-{directional_confidence}"
+    )
     if evalfile_name:
         jsonify_eval_outputs(result_triples, evalfile_name)
     return overall_score
@@ -85,13 +100,20 @@ def main():
     parser.add_argument("--max_examples", type=int)
     parser.add_argument("--log_level", type=str, default="INFO")
     parser.add_argument("--num_threads", type=int, default=1)
+    parser.add_argument("--random_snapshot", action="store_true")
+    parser.add_argument("--min_num_trades", type=int, default=10)
+    parser.add_argument("--score_type", type=str, default="brier")
     args = parser.parse_args()
+    assert args.score_type in ["brier", "cross_entropy"], "Invalid score type"
     evaluate(
         args.config_path,
         args.parquet_path,
         args.max_examples,
         args.log_level,
         args.num_threads,
+        args.score_type == "brier",
+        not args.random_snapshot,
+        args.min_num_trades,
     )
 
 
