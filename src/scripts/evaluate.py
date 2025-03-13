@@ -97,7 +97,7 @@ def main():
     parser.add_argument(
         "--parquet_path", type=Path, default="processed_data/test.parquet"
     )
-    parser.add_argument("--max_examples", type=int)
+    parser.add_argument("--max_examples", type=int, default=None)
     parser.add_argument("--log_level", type=str, default="INFO")
     parser.add_argument("--num_threads", type=int, default=1)
     parser.add_argument("--random_snapshot", action="store_true")

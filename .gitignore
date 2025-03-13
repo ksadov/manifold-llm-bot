@@ -1,8 +1,11 @@
-config/llm
-config/secrets
+config/llm/*
+config/secrets/*
+!config/secrets/secrets_example.json
+!config/llm/gpt-4o-mini-example.json
 venv/
 mlruns/
 logs/
 *__pycache__*
 processed_data/
-dspy_programs/
+dspy_programs/*
+!dspy_programs/halawi_zero_shot.json

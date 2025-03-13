@@ -1,0 +1,7 @@
+{
+  "api_base": "https://api.openai.com/v1",
+  "api_key": "sk-proj-your-OpenAI-key",
+  "model": "gpt-4o-mini",
+  "prompt_params": {},
+  "knowledge_cutoff": "2023-11-01"
+}
