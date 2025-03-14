@@ -1,12 +1,17 @@
+from matplotlib import use
 import dspy
 from logging import Logger
 import json
 from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, List
+import datetime
+from src.logging import create_logger
+import os
 
 from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
 
-from src.tools.search import Search
+from src.tools.search import Search, init_search
 from src.tools.python_interpreter import PythonInterpreter
 
 
@@ -134,16 +139,61 @@ class AgentLoggingCallback(BaseCallback):
             self.python_logger.error(exception)
 
 
+class GetSources(dspy.Signature):
+    """Search the web and retrieve HTML content relevant to making a prediction on the given prediction market question."""
+
+    question: str = dspy.InputField()
+    description: str = dspy.InputField()
+    creatorUsername: str = dspy.InputField()
+    comments: list[dict] = dspy.InputField()
+    current_date: str = dspy.InputField()
+    answer: list[str] = dspy.OutputField()
+
+
+class FillInScratchPad(dspy.Signature):
+    """Fill in the double-bracketed sections of the template according to the instructions, using relevant information from the sources. Then return the filled-in template as well as your final answer."""
+
+    template: str = dspy.InputField()
+    sources: list[str] = dspy.InputField()
+    filled_in: str = dspy.OutputField()
+    answer: float = dspy.OutputField()
+
+
+class PredictWithScratchpad(dspy.Module):
+    def __init__(self, search_tools: list, template: str):
+        super().__init__()
+        self.template = template
+        self.get_sources = dspy.ReAct(GetSources, tools=search_tools)
+        self.fill_in_scratch_pad = dspy.Predict(FillInScratchPad)
+
+    def forward(
+        self,
+        question: str,
+        description: str,
+        creatorUsername: str,
+        comments: list[dict],
+        current_date: str,
+    ) -> dict:
+        sources = self.get_sources(
+            question=question,
+            description=description,
+            creatorUsername=creatorUsername,
+            comments=comments,
+            current_date=current_date,
+        )
+        filled_in = self.fill_in_scratch_pad(template=self.template, sources=sources)
+        return filled_in
+
+
 def init_dspy(
-    llm_config_path: Path,
+    llm_config: dict,
     dspy_program_path: Optional[Path],
     search: Search,
     unified_web_search: bool,
     use_python_interpreter: bool,
+    scratchpad_template_path: Optional[Path],
     logger: Optional[Logger] = None,
 ) -> dspy.ReAct:
-    with open(llm_config_path) as f:
-        llm_config = json.load(f)
     # DSPY expects OpenAI-compatible endpoints to have the prefix openai/
     # even if we're not using an OpenAI model
     lm = dspy.LM(
@@ -159,7 +209,10 @@ def init_dspy(
 
     tools = make_search_tools(search, unified_web_search)
 
-    if use_python_interpreter:
+    if use_python_interpreter and scratchpad_template_path is not None:
+        raise ValueError("Cannot use both Python interpreter and scratchpad prompts")
+
+    elif use_python_interpreter:
 
         def eval_python(code: str) -> Dict[str, Any]:
             interpreter = PythonInterpreter()
@@ -167,14 +220,98 @@ def init_dspy(
             return result
 
         tools.append(eval_python)
-
-    predict_market = dspy.ReAct(
-        MarketPrediction,
-        tools=tools,
-    )
+    if scratchpad_template_path is not None:
+        with open(scratchpad_template_path) as f:
+            scratchpad_template = f.read()
+        predict_market = PredictWithScratchpad(
+            search_tools=tools,
+            template=scratchpad_template,
+        )
+    else:
+        predict_market = dspy.ReAct(
+            MarketPrediction,
+            tools=tools,
+        )
     if dspy_program_path is not None:
         predict_market.load(dspy_program_path)
         logger.info(f"Loaded DSPy program from {dspy_program_path}")
     if logger is not None:
         logger.info("DSPy initialized")
     return predict_market
+
+
+def init_pipeline(
+    config_path: Path,
+    log_level: str,
+    mode: str,
+) -> Tuple[List[dspy.Example], dspy.ReAct, Logger, Optional[str]]:
+    with open(config_path) as f:
+        config = json.load(f)
+    llm_config_path = Path(config["llm_config_path"])
+    with open(llm_config_path) as f:
+        llm_config = json.load(f)
+    # specified in 2021-01-01 format
+    if "knowledge_cutoff" in llm_config and mode != "deploy":
+        cutoff_date = datetime.datetime.strptime(
+            llm_config["knowledge_cutoff"], "%Y-%m-%d"
+        )
+    else:
+        cutoff_date = None
+
+    logger, logfile_name = create_logger(config["name"], mode, log_level=log_level)
+    if mode == "eval" or mode == "optimize":
+        evalfile_name = f"logs/eval/{logfile_name.split('.')[0]}.json"
+        os.makedirs("logs/eval", exist_ok=True)
+    else:
+        evalfile_name = None
+    logger.info(f"Config: {config_path}")
+    logger.info(f"Config: {json.dumps(config, indent=4)}")
+    search = init_search(config_path, cutoff_date)
+
+    # Initialize prediction function
+    predict_market = init_dspy(
+        llm_config,
+        config["dspy_program_path"],
+        search,
+        config["unified_web_search"],
+        config["use_python_interpreter"],
+        config["scratchpad_template_path"],
+        logger,
+    )
+    return (
+        predict_market,
+        logger,
+        evalfile_name,
+        cutoff_date,
+        config["market_filters"]["exclude_groups"],
+    )
+
+
+def test():
+    config_path = "config/bot/scratchpad.json"
+    predict_market, _, _, _, _ = init_pipeline(
+        config_path,
+        "INFO",
+        "deploy",
+    )
+    question = "Will Manifold Markets shut down before 2030?"
+    description = ""
+    creatorUsername = "user1"
+    comments = []
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+    filled_in = predict_market(
+        question=question,
+        description=description,
+        creatorUsername=creatorUsername,
+        comments=comments,
+        current_date=current_date,
+    )
+    print(filled_in)
+
+
+def main():
+    test()
+
+
+if __name__ == "__main__":
+    main()

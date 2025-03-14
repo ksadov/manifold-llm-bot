@@ -2,7 +2,7 @@
   "name": "basic_bot",
   "secrets_path": "config/secrets/basic_secrets.json",
   "llm_config_path": "config/llm/gpt-4o-mini.json",
-  "scratchpad_template_path": null,
+  "scratchpad_template_path": "src/halawi_scratchpad.txt",
   "dspy_program_path": null,
   "market_filters": {
     "exclude_groups": [
