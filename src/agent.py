@@ -10,6 +10,42 @@ from src.tools.search import Search
 from src.tools.python_interpreter import PythonInterpreter
 
 
+def make_search_tools(search: Search, unified_search: bool) -> list:
+    def get_relevant_urls(query: str) -> list[dict]:
+        results = search.get_results(query)
+        result_dicts = [result.to_dict() for result in results]
+        return result_dicts
+
+    def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
+        if isinstance(url_list, dict) and "items" in url_list:
+            url_list = list(url_list["items"])
+        cleaned_html = [search.retrieve_cleaned_html(url) for url in url_list]
+        result_dicts = [
+            {"url": url, "cleaned_html_content": html}
+            for url, html in zip(url_list, cleaned_html)
+        ]
+        return result_dicts
+
+    if unified_search:
+
+        def web_search(query: str) -> list[dict]:
+            relevant_urls = get_relevant_urls(query)
+            urls = [result["link"] for result in relevant_urls]
+            web_content = retrieve_web_content(urls)
+            result_dicts = [
+                {**relevant_url, **content}
+                for relevant_url, content in zip(relevant_urls, web_content)
+            ]
+            return result_dicts
+
+        search_tools = [web_search]
+
+    else:
+        search_tools = [get_relevant_urls, retrieve_web_content]
+
+    return search_tools
+
+
 class MarketPrediction(dspy.Signature):
     """Given a question and description, predict the likelihood (between 0 and 1) that the market will resolve YES."""
 
@@ -121,44 +157,15 @@ def init_dspy(
     else:
         dspy.configure(lm=lm)
 
-    def eval_python(code: str) -> Dict[str, Any]:
-        interpreter = PythonInterpreter()
-        result = interpreter.execute(code)
-        return result
-
-    def get_relevant_urls(query: str) -> list[dict]:
-        results = search.get_results(query)
-        result_dicts = [result.to_dict() for result in results]
-        return result_dicts
-
-    def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
-        if isinstance(url_list, dict) and "items" in url_list:
-            url_list = list(url_list["items"])
-        cleaned_html = [search.retrieve_cleaned_html(url) for url in url_list]
-        result_dicts = [
-            {"url": url, "cleaned_html_content": html}
-            for url, html in zip(url_list, cleaned_html)
-        ]
-        return result_dicts
-
-    if unified_web_search:
-
-        def web_search(query: str) -> list[dict]:
-            relevant_urls = get_relevant_urls(query)
-            urls = [result["link"] for result in relevant_urls]
-            web_content = retrieve_web_content(urls)
-            result_dicts = [
-                {**relevant_url, **content}
-                for relevant_url, content in zip(relevant_urls, web_content)
-            ]
-            return result_dicts
-
-        tools = [web_search]
-
-    else:
-        tools = [get_relevant_urls, retrieve_web_content]
+    tools = make_search_tools(search, unified_web_search)
 
     if use_python_interpreter:
+
+        def eval_python(code: str) -> Dict[str, Any]:
+            interpreter = PythonInterpreter()
+            result = interpreter.execute(code)
+            return result
+
         tools.append(eval_python)
 
     predict_market = dspy.ReAct(

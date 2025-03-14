@@ -1,0 +1,16 @@
+Instructions:
+1. Given the above question, rephrase and expand it to help you do better answering. Maintain all information in the original question.
+{{ Insert rephrased and expanded question.}}
+2. Provide a few reasons why the answer might be no. Rate the strength of each reason.
+{{ Insert your thoughts }}
+3. Provide a few reasons why the answer might be yes. Rate the strength of each reason.
+{{ Insert your thoughts }}
+4. Aggregate your considerations. Think like a superforecaster (e.g. Nate Silver).
+{{ Insert your aggregated considerations }}
+5. Output an initial probability (prediction) given steps 1-4.
+{{ Insert initial probability }}
+6. Evaluate whether your calculated probability is excessively confident or not confident enough. Also, consider anything else that might
+affect the forecast that you did not before consider.
+{{ Insert your thoughts }}
+7. Output your answer (a number between 0 and 1). Do not output anything else.
+{{ Insert your answer }}
