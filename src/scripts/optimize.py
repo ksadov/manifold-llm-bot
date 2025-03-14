@@ -4,13 +4,13 @@ from src.scripts import trade
 import dspy
 from typing import Optional
 from pathlib import Path
-from src.evaluation import (
-    setup_pipeline,
+from src.backtesting.metrics import (
     soft_cross_entropy,
     validate_directional,
     brier_score,
 )
 from src.backtesting.dataset import load_examples
+from src.agent import init_pipeline
 
 
 def optimizer_cross_entropy(example, pred, trace=None):
@@ -52,10 +52,10 @@ def optimize(
     trade_from_start: bool,
     use_brier: bool,
 ):
-    predict_market, _, _, cutoff_date, exclude_groups = setup_pipeline(
+    predict_market, _, _, cutoff_date, exclude_groups = init_pipeline(
         config_path,
         log_level,
-        "train",
+        "optimize",
     )
     trainset = load_examples(
         train_parquet_path,

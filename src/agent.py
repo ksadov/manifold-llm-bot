@@ -259,9 +259,9 @@ def init_pipeline(
         cutoff_date = None
 
     logger, logfile_name = create_logger(config["name"], mode, log_level=log_level)
-    if mode == "eval" or mode == "optimize":
-        evalfile_name = f"logs/eval/{logfile_name.split('.')[0]}.json"
-        os.makedirs("logs/eval", exist_ok=True)
+    if mode == "eval":
+        evalfile_name = f"logs/{mode}/{logfile_name.split('.')[0]}.json"
+        os.makedirs(f"logs/{mode}", exist_ok=True)
     else:
         evalfile_name = None
     logger.info(f"Config: {config_path}")
