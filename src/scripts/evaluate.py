@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import List, Optional
 from src.backtesting.dataset import load_examples
 
-from src.evaluation import (
-    setup_pipeline,
+from src.backtesting.metrics import (
     soft_cross_entropy,
     validate_directional,
     brier_score,
     score_stats,
 )
+from src.agent import init_pipeline
 
 
 def jsonify_eval_outputs(result_triples: List[dict], evalfile_name: str):
@@ -43,7 +43,7 @@ def evaluate(
     trade_from_start: bool,
     min_num_trades: int,
 ):
-    predict_market, logger, evalfile_name, cutoff_date, exclude_groups = setup_pipeline(
+    predict_market, logger, evalfile_name, cutoff_date, exclude_groups = init_pipeline(
         config_path, log_level, "eval"
     )
     examples = load_examples(

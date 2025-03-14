@@ -1,19 +1,3 @@
-from math import log
-from pathlib import Path
-import json
-import datetime
-from typing import Optional
-import os
-import dspy
-from logging import Logger
-from typing import List, Tuple
-import math
-
-from src.agent import init_dspy
-from src.tools.search import init_search
-from src.logging import create_logger
-
-
 def score_stats(scores):
     """
     Return mean and 95% confidence interval for a list of scores.
@@ -95,49 +79,3 @@ def soft_cross_entropy(example, pred, trace=None):
     # for our optimizer, higher is better
     flipped_loss = -loss
     return flipped_loss
-
-
-def setup_pipeline(
-    config_path: Path,
-    log_level: str,
-    split: str,
-) -> Tuple[List[dspy.Example], dspy.ReAct, Logger, Optional[str]]:
-    with open(config_path) as f:
-        config = json.load(f)
-    llm_config_path = Path(config["llm_config_path"])
-    with open(llm_config_path) as f:
-        llm_config = json.load(f)
-    # specified in 2021-01-01 format
-    if "knowledge_cutoff" in llm_config:
-        cutoff_date = datetime.datetime.strptime(
-            llm_config["knowledge_cutoff"], "%Y-%m-%d"
-        )
-    else:
-        cutoff_date = None
-
-    logger, logfile_name = create_logger(config["name"], split, log_level=log_level)
-    if split == "eval":
-        evalfile_name = f"logs/eval/{logfile_name.split('.')[0]}.json"
-        os.makedirs("logs/eval", exist_ok=True)
-    else:
-        evalfile_name = None
-    logger.info(f"Config: {config_path}")
-    logger.info(f"Config: {json.dumps(config, indent=4)}")
-    search = init_search(config_path, cutoff_date)
-
-    # Initialize prediction function
-    predict_market = init_dspy(
-        llm_config_path,
-        config["dspy_program_path"],
-        search,
-        config["unified_web_search"],
-        config["use_python_interpreter"],
-        logger,
-    )
-    return (
-        predict_market,
-        logger,
-        evalfile_name,
-        cutoff_date,
-        config["market_filters"]["exclude_groups"],
-    )

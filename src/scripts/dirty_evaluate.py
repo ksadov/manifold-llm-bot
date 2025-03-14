@@ -1,19 +1,19 @@
 from tqdm import tqdm
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
+from typing import Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import threading
 import signal
 import sys
+from src.agent import init_pipeline
 from src.backtesting.dataset import load_examples
-from src.evaluation import (
-    setup_pipeline,
+from src.backtesting.metrics import (
     soft_cross_entropy,
     validate_directional,
     score_stats,
 )
-from src.evaluation import brier_score as brier_score_fn
+from src.backtesting.metrics import brier_score as brier_score_fn
 from src.scripts.evaluate import jsonify_eval_outputs
 
 
@@ -164,7 +164,7 @@ def evaluate(
     # Set up the signal handler for Ctrl+C
     signal.signal(signal.SIGINT, signal_handler)
 
-    predict_market, logger, evalfile_name, cutoff_date, exclude_groups = setup_pipeline(
+    predict_market, logger, evalfile_name, cutoff_date, exclude_groups = init_pipeline(
         config_path, log_level, "eval"
     )
     examples = load_examples(
