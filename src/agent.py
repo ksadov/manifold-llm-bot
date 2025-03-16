@@ -240,9 +240,6 @@ class PredictWithSearchCutoff(dspy.Module):
             current_date=current_date,
         )
 
-    def load_state(self, state: dict):
-        self.predict_market.load_state(state["predict_market"])
-
 
 def init_dspy(
     llm_config: dict,

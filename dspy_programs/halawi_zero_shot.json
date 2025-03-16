@@ -1,11 +1,10 @@
 {
-  "react": {
-    "lm": null,
+  "predict_market.react": {
     "traces": [],
     "train": [],
     "demos": [],
     "signature": {
-      "instructions": "You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can’t answer, pick the base rate, but return a number between 0 and 1.\n\nYou will be given `question`, `description`, `creatorUsername`, `comments`, `current_date` and your goal is to finish with `answer`.\n\nTo do this, you will interleave Thought, Tool Name, and Tool Args, and receive a resulting Observation.\n\nThought can reason about the current situation, and Tool Name can be the following types:\n\n(1) get_relevant_urls. It takes arguments {'query': {'type': 'string'}} in JSON format.\n(2) retrieve_web_content. It takes arguments {'url_list': {'items': {'type': 'string'}, 'type': 'array'}} in JSON format.\n(3) finish, whose description is <desc>Signals that the final outputs, i.e. `answer`, are now available and marks the task as complete.<\/desc>. It takes arguments {'kwargs': 'Any'} in JSON format.",
+      "instructions": "You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can’t answer, pick the base rate, but return a number between 0 and 1.\\n\nYou will be given `question`, `description`, `creatorUsername`, `comments`, `current_date` and your goal is to finish with `answer`.\n\nTo do this, you will interleave Thought, Tool Name, and Tool Args, and receive a resulting Observation.\n\nThought can reason about the current situation, and Tool Name can be the following types:\n\n(1) get_relevant_urls. It takes arguments {'query': {'type': 'string'}} in JSON format.\n(2) retrieve_web_content. It takes arguments {'url_list': {'anyOf': [{'items': {'type': 'string'}, 'type': 'array'}, {'type': 'object'}]}} in JSON format.\n(3) finish, whose description is <desc>Signals that the final outputs, i.e. `answer`, are now available and marks the task as complete.<\/desc>. It takes arguments {'kwargs': 'Any'} in JSON format.",
       "fields": [
         {
           "prefix": "Question:",
@@ -44,10 +43,10 @@
           "description": "${next_tool_args}"
         }
       ]
-    }
+    },
+    "lm": null
   },
-  "extract.predict": {
-    "lm": null,
+  "predict_market.extract.predict": {
     "traces": [],
     "train": [],
     "demos": [],
@@ -79,7 +78,7 @@
           "description": "${trajectory}"
         },
         {
-          "prefix": "Reasoning: Let's think step by step in order to",
+          "prefix": "Reasoning:",
           "description": "${reasoning}"
         },
         {
@@ -87,12 +86,13 @@
           "description": "${answer}"
         }
       ]
-    }
+    },
+    "lm": null
   },
   "metadata": {
     "dependency_versions": {
       "python": "3.11",
-      "dspy": "2.6.8",
+      "dspy": "2.6.12",
       "cloudpickle": "3.1"
     }
   }
