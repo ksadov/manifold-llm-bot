@@ -23,7 +23,8 @@ def optimizer_cross_entropy(example, pred, trace=None):
         print(f"Directional value: {directional_value}")
         return directional_value > 0
     else:
-        score = soft_cross_entropy(example, pred, trace)
+        # flip the score, since optimizer tries to maximize
+        score = soft_cross_entropy(example, pred, trace) * -1
         print(f"Soft cross entropy score: {score}")
         return score
 
@@ -34,7 +35,7 @@ def optimizer_brier(example, pred, trace=None):
         print(f"Directional value: {directional_value}")
         return directional_value > 0
     else:
-        score = brier_score(example, pred, trace)
+        score = brier_score(example, pred, trace) * -1
         print(f"Brier score: {score}")
         return score
 

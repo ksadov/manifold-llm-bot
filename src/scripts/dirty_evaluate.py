@@ -108,6 +108,7 @@ def process_example(args):
                 current_date=example.current_date,
                 creatorUsername=example.creatorUsername,
                 comments=example.comments,
+                cutoff_date=example.cutoff_date,
             )
             if use_brier:
                 score = brier_score_fn(example, prediction)

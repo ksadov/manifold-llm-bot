@@ -185,6 +185,65 @@ class PredictWithScratchpad(dspy.Module):
         return filled_in
 
 
+class PredictWithSearchCutoff(dspy.Module):
+    def __init__(
+        self,
+        search: Search,
+        unified_search: bool,
+        use_python_interpreter: bool,
+        scratchpad_template: Optional[str],
+    ):
+        super().__init__()
+        self.search = search
+        self.unified_search = unified_search
+        self.use_python_interpreter = use_python_interpreter
+        self.tools = make_search_tools(search, unified_search)
+        if use_python_interpreter and scratchpad_template is not None:
+            raise ValueError(
+                "Cannot use both Python interpreter and scratchpad prompts"
+            )
+        elif use_python_interpreter:
+
+            def eval_python(code: str) -> Dict[str, Any]:
+                interpreter = PythonInterpreter()
+                result = interpreter.execute(code)
+                return result
+
+            self.tools.append(eval_python)
+        if scratchpad_template is not None:
+            self.predict_market = PredictWithScratchpad(
+                search_tools=self.tools,
+                template=scratchpad_template,
+            )
+        else:
+            self.predict_market = dspy.ReAct(
+                MarketPrediction,
+                tools=self.tools,
+            )
+
+    def forward(
+        self,
+        question: str,
+        description: str,
+        creatorUsername: str,
+        comments: list[dict],
+        current_date: str,
+        cutoff_date: Optional[datetime.datetime] = None,
+    ) -> dict:
+        if cutoff_date is not None:
+            self.search.set_cutoff_date(cutoff_date)
+        return self.predict_market.forward(
+            question=question,
+            description=description,
+            creatorUsername=creatorUsername,
+            comments=comments,
+            current_date=current_date,
+        )
+
+    def load_state(self, state: dict):
+        self.predict_market.load_state(state["predict_market"])
+
+
 def init_dspy(
     llm_config: dict,
     dspy_program_path: Optional[Path],
@@ -207,31 +266,12 @@ def init_dspy(
     else:
         dspy.configure(lm=lm)
 
-    tools = make_search_tools(search, unified_web_search)
-
-    if use_python_interpreter and scratchpad_template_path is not None:
-        raise ValueError("Cannot use both Python interpreter and scratchpad prompts")
-
-    elif use_python_interpreter:
-
-        def eval_python(code: str) -> Dict[str, Any]:
-            interpreter = PythonInterpreter()
-            result = interpreter.execute(code)
-            return result
-
-        tools.append(eval_python)
-    if scratchpad_template_path is not None:
-        with open(scratchpad_template_path) as f:
-            scratchpad_template = f.read()
-        predict_market = PredictWithScratchpad(
-            search_tools=tools,
-            template=scratchpad_template,
-        )
-    else:
-        predict_market = dspy.ReAct(
-            MarketPrediction,
-            tools=tools,
-        )
+    predict_market = PredictWithSearchCutoff(
+        search,
+        unified_web_search,
+        use_python_interpreter,
+        scratchpad_template_path.read_text() if scratchpad_template_path else None,
+    )
     if dspy_program_path is not None:
         predict_market.load(dspy_program_path)
         logger.info(f"Loaded DSPy program from {dspy_program_path}")
@@ -266,7 +306,13 @@ def init_pipeline(
         evalfile_name = None
     logger.info(f"Config: {config_path}")
     logger.info(f"Config: {json.dumps(config, indent=4)}")
-    search = init_search(config_path, cutoff_date)
+    search = init_search(config_path)
+
+    scratchpad_template_path = (
+        Path(config["scratchpad_template_path"])
+        if "scratchpad_template_path" in config and config["scratchpad_template_path"]
+        else None
+    )
 
     # Initialize prediction function
     predict_market = init_dspy(
@@ -275,7 +321,7 @@ def init_pipeline(
         search,
         config["unified_web_search"],
         config["use_python_interpreter"],
-        config["scratchpad_template_path"],
+        scratchpad_template_path,
         logger,
     )
     return (

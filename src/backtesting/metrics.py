@@ -76,6 +76,4 @@ def soft_cross_entropy(example, pred, trace=None):
     # Clip predictions to avoid log(0)
     p_pred = min(p_pred, epsilon, 1 - epsilon)
     loss = -(y_true * math.log(p_pred) + (1 - y_true) * math.log(1 - p_pred))
-    # for our optimizer, higher is better
-    flipped_loss = -loss
-    return flipped_loss
+    return loss

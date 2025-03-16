@@ -53,7 +53,7 @@ def make_example(
         comments=comments_pre_snapshot,
         probability=probability,
         resolution=resolution,
-        datetime_timestamp=datetime.datetime.fromtimestamp(timestamp / 1000),
+        cutoff_date=datetime.datetime.fromtimestamp(timestamp / 1000),
     ).with_inputs(
         "question",
         "formatted_timestamp",
@@ -61,6 +61,7 @@ def make_example(
         "creatorUsername",
         "comments",
         "current_date",
+        "cutoff_date",
     )
 
 

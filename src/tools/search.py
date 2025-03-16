@@ -94,7 +94,7 @@ class Search:
         return clean_html
 
 
-def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
+def init_search(config_path: Path) -> Search:
     # Load config from file
     with open(config_path) as f:
         config = json.load(f)
@@ -108,7 +108,6 @@ def init_search(config_path: Path, cutoff_date: datetime.datetime) -> Search:
         secrets["google_cse_cx"],
         config["max_search_results"],
         config["max_html_length"],
-        cutoff_date=cutoff_date,
     )
     return search
 
