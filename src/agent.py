@@ -151,11 +151,11 @@ class GetSources(dspy.Signature):
 
 
 class FillInScratchPad(dspy.Signature):
-    """Fill in the double-bracketed sections of the template according to the instructions, using relevant information from the sources. Then return the filled-in template as well as your final answer."""
+    """Fill in the double-bracketed sections of the template according to the instructions, using relevant information from the sources. Then return the filled-in reasoning template as well as your final answer."""
 
     template: str = dspy.InputField()
     sources: list[str] = dspy.InputField()
-    filled_in: str = dspy.OutputField()
+    reasoning: str = dspy.OutputField()
     answer: float = dspy.OutputField()
 
 

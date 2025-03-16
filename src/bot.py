@@ -15,7 +15,7 @@ from src.manifold.utils import (
     place_comment,
     get_my_account,
 )
-from src.agent import init_dspy
+from src.agent import init_pipeline
 
 
 class Bot:
@@ -23,9 +23,7 @@ class Bot:
         self,
         logger: Logger,
         manifold_api_key: str,
-        llm_config_path: str,
-        dspy_program_path: str,
-        search: Search,
+        predict_market: callable,
         trade_loop_wait: int,
         get_newest_limit: int,
         market_filters: dict,
@@ -34,12 +32,10 @@ class Bot:
         kelly_alpha: float,
         expires_millis_after: Optional[int],
         dry_run: bool,
-        unified_web_search: bool,
-        use_python_interpreter: bool,
     ):
         self.logger = logger
+        self.predict_market = predict_market
         self.manifold_api_key = manifold_api_key
-        self.search = search
         self.trade_loop_wait = trade_loop_wait
         self.get_newest_limit = get_newest_limit
         self.market_filters = market_filters
@@ -49,15 +45,6 @@ class Bot:
         self.last_search_timestamp = None
         self.expires_millis_after = expires_millis_after
         self.dry_run = dry_run
-
-        self.predict_market = init_dspy(
-            llm_config_path,
-            dspy_program_path,
-            search,
-            unified_web_search,
-            use_python_interpreter,
-            logger,
-        )
 
     def get_probability_estimate(self, market: FullMarket):
         prediction = self.predict_market(
@@ -126,24 +113,16 @@ class Bot:
             time.sleep(self.trade_loop_wait)
 
 
-def init_from_config(config: dict, logger: Logger) -> Bot:
-    secrets_json_path = Path(config["secrets_path"])
-    # Load secrets from file
-    with open(secrets_json_path) as f:
+def init_from_config(config_path: Path, log_level: str) -> Bot:
+    predict_market, logger, _, _, _ = init_pipeline(config_path, log_level, "deploy")
+    with open(config_path, "r") as f:
+        config = json.load(f)
+    with open(config["secrets_path"], "r") as f:
         secrets = json.load(f)
-    # Initialize search
-    search = Search(
-        secrets["google_api_key"],
-        secrets["google_cse_cx"],
-        config["max_search_results"],
-        config["max_html_length"],
-    )
     return Bot(
         logger=logger,
         manifold_api_key=secrets["manifold_api_key"],
-        llm_config_path=config["llm_config_path"],
-        dspy_program_path=config["dspy_program_path"],
-        search=search,
+        predict_market=predict_market,
         trade_loop_wait=config["trade_loop_wait"],
         get_newest_limit=config["get_newest_limit"],
         market_filters=config["market_filters"],
@@ -152,6 +131,4 @@ def init_from_config(config: dict, logger: Logger) -> Bot:
         kelly_alpha=config["bet"]["kelly_alpha"],
         expires_millis_after=config["bet"]["expires_millis_after"],
         dry_run=config["bet"]["dry_run"],
-        unified_web_search=config["unified_web_search"],
-        use_python_interpreter=config["use_python_interpreter"],
     )

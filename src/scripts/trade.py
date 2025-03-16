@@ -19,10 +19,7 @@ def main():
         help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
     )
     args = parser.parse_args()
-    with open(args.config_path) as f:
-        config = json.load(f)
-    logger, _ = create_logger(config["name"], "trading", args.log_level)
-    bot = init_from_config(config, logger)
+    bot = init_from_config(args.config_path, args.log_level)
     bot.run()
 
 
