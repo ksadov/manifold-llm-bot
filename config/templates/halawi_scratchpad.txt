@@ -7,7 +7,7 @@ Instructions:
 {{ Insert your thoughts }}
 4. Aggregate your considerations. Think like a superforecaster (e.g. Nate Silver).
 {{ Insert your aggregated considerations }}
-5. Output an initial probability (prediction) given steps 1-4.
+5. Output an initial probability (prediction) for yes given steps 1-4.
 {{ Insert initial probability }}
 6. Evaluate whether your calculated probability is excessively confident or not confident enough. Also, consider anything else that might
 affect the forecast that you did not before consider.

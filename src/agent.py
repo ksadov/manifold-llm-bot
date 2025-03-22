@@ -62,6 +62,13 @@ class MarketPrediction(dspy.Signature):
     answer: float = dspy.OutputField()
 
 
+def stringify_for_logging(obj: Any) -> str:
+    try:
+        return json.dumps(obj, indent=4)
+    except Exception:
+        return str(obj)
+
+
 class AgentLoggingCallback(BaseCallback):
     def __init__(self, python_logger: Logger):
         super().__init__()
@@ -74,7 +81,7 @@ class AgentLoggingCallback(BaseCallback):
         inputs: Dict[str, Any],
     ):
         self.python_logger.debug(f"Starting DSPy module {instance} with inputs:")
-        self.python_logger.debug(json.dumps(inputs, indent=4))
+        self.python_logger.debug(stringify_for_logging(inputs))
 
     def on_adapter_format_end(
         self,
@@ -103,7 +110,7 @@ class AgentLoggingCallback(BaseCallback):
         inputs: Dict[str, Any],
     ):
         self.python_logger.debug(f"Starting tool {instance} with inputs:")
-        self.python_logger.debug(json.dumps(inputs, indent=4))
+        self.python_logger.debug(stringify_for_logging(inputs))
 
     def on_tool_end(
         self,
@@ -124,7 +131,7 @@ class AgentLoggingCallback(BaseCallback):
         inputs: Dict[str, Any],
     ):
         self.python_logger.debug(f"Starting LM {instance} with inputs:")
-        self.python_logger.debug(json.dumps(inputs, indent=4))
+        self.python_logger.debug(stringify_for_logging(inputs))
 
     def on_lm_end(
         self,
@@ -133,14 +140,14 @@ class AgentLoggingCallback(BaseCallback):
         exception: Optional[Exception] = None,
     ):
         self.python_logger.debug(f"LM {call_id} finished with outputs:")
-        self.python_logger.debug(json.dumps(outputs, indent=4))
+        self.python_logger.debug(stringify_for_logging(outputs))
         if exception is not None:
             self.python_logger.error("DSPy LM Exception:")
             self.python_logger.error(exception)
 
 
 class GetSources(dspy.Signature):
-    """Search the web and retrieve HTML content relevant to making a prediction on the given prediction market question."""
+    """Search the web and retrieve a list of HTML content potentially relevant to making a prediction on the given prediction market question or associated base rates. The output answer should be a list of strings, where each string is the cleaned HTML content from some URL."""
 
     question: str = dspy.InputField()
     description: str = dspy.InputField()
@@ -302,7 +309,7 @@ def init_pipeline(
     else:
         evalfile_name = None
     logger.info(f"Config: {config_path}")
-    logger.info(f"Config: {json.dumps(config, indent=4)}")
+    logger.info(f"Config: {stringify_for_logging(config)}")
     search = init_search(config_path)
 
     scratchpad_template_path = (
