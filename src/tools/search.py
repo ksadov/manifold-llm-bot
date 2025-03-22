@@ -53,12 +53,15 @@ class Search:
         self.lm = dspy.LM("gemini/gemini-2.0-flash-lite", api_key=google_cse_key)
         self.html_cleaner = dspy.Predict(CleanHTML)
         if cutoff_date:
-            self.date_restriction_string = f"date:r::{cutoff_date}"
+            self.date_restriction_string = f"date:r::{self.format_date(cutoff_date)}"
         else:
             self.date_restriction_string = None
 
+    def format_date(self, date: str) -> str:
+        return datetime.datetime.strptime(date, "%Y-%m-%d").strftime("%Y%m%d")
+
     def set_cutoff_date(self, cutoff_date: str):
-        self.date_restriction_string = f"date:r::{cutoff_date}"
+        self.date_restriction_string = f"date:r::{self.format_date(cutoff_date)}"
         return self
 
     def get_results(self, query: str) -> list[SearchResult]:
