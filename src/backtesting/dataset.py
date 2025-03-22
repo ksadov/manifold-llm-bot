@@ -43,7 +43,7 @@ def make_example(
     ]
     # divide timestamp by 1000 to convert from milliseconds to seconds
     formatted_timestamp = datetime.datetime.fromtimestamp(timestamp / 1000).strftime(
-        "%Y-%m-%d %H:%M:%S"
+        "%Y-%m-%d"
     )
     return dspy.Example(
         question=question,
@@ -53,7 +53,9 @@ def make_example(
         comments=comments_pre_snapshot,
         probability=probability,
         resolution=resolution,
-        cutoff_date=datetime.datetime.fromtimestamp(timestamp / 1000),
+        cutoff_date=datetime.datetime.fromtimestamp(timestamp / 1000).strftime(
+            "%Y-%m-%d"
+        ),
     ).with_inputs(
         "question",
         "formatted_timestamp",

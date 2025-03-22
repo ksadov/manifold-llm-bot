@@ -228,7 +228,7 @@ class PredictWithSearchCutoff(dspy.Module):
         creatorUsername: str,
         comments: list[dict],
         current_date: str,
-        cutoff_date: Optional[datetime.datetime] = None,
+        cutoff_date: Optional[str] = None,
     ) -> dict:
         if cutoff_date is not None:
             self.search.set_cutoff_date(cutoff_date)

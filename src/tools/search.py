@@ -43,7 +43,7 @@ class Search:
         google_cse_cx: str,
         num_search_results: int,
         max_html_length: int,
-        cutoff_date: Optional[datetime.datetime] = None,
+        cutoff_date: Optional[str] = None,
     ):
         self.api_key = google_cse_key
         self.cx = google_cse_cx
@@ -53,12 +53,12 @@ class Search:
         self.lm = dspy.LM("gemini/gemini-2.0-flash-lite", api_key=google_cse_key)
         self.html_cleaner = dspy.Predict(CleanHTML)
         if cutoff_date:
-            self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
+            self.date_restriction_string = f"date:r::{cutoff_date}"
         else:
             self.date_restriction_string = None
 
-    def set_cutoff_date(self, cutoff_date: datetime.datetime):
-        self.date_restriction_string = f"date:r::{cutoff_date.strftime('%Y%m%d')}"
+    def set_cutoff_date(self, cutoff_date: str):
+        self.date_restriction_string = f"date:r::{cutoff_date}"
         return self
 
     def get_results(self, query: str) -> list[SearchResult]:
@@ -115,7 +115,7 @@ def init_search(config_path: Path) -> Search:
 def test():
     query = "prediction markets"
     secret_path = "config/secrets/basic_secrets.json"
-    cutoff_date = datetime.datetime(2005, 1, 1)
+    cutoff_date = datetime.datetime(2005, 1, 1).strftime("%Y-%m-%d")
     with open(secret_path) as f:
         secrets = json.load(f)
     search = Search(
