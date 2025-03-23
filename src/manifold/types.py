@@ -33,7 +33,7 @@ class Fees(BaseModel):
 
 
 class Fill(BaseModel):
-    amount: int
+    amount: int | float
     matchedBetId: Optional[str]
     shares: float
     timestamp: int
