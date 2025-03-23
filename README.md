@@ -21,4 +21,4 @@ Once you have a bot config set up, run `python -m src.scripts.trade my/config/pa
 `python -m src.scripts.optimize` will let you run optimization using DSPY's implementation of MIRPOv2 or COPRO depending on flags. But it is again likely to hang, so IMO you're better off editing the programs by hand and then linking them in the bot config: see `dspy_programs/halawi_zero_shot.json` for an example.
 
 # Credits
-The prompt in `dspy_programs/halawi_zero_shot.json` was adapted from https://arxiv.org/html/2402.18563v1.
+The prompts in `dspy_programs/halawi_zero_shot.json` and  `config/templates/halawi_scratchpad.txt` were adapted from https://arxiv.org/html/2402.18563v1.
