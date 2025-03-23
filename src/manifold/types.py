@@ -12,6 +12,7 @@ class OutcomeType(str, Enum):
     BOUNTIED_QUESTION = "BOUNTIED_QUESTION"
     POLL = "POLL"
     MULTI_NUMERIC = "MULTI_NUMERIC"
+    DATE = "DATE"
 
 
 class AddAnswersMode(str, Enum):
@@ -70,7 +71,7 @@ class LiteMarket(BaseModel):
     url: str
     outcomeType: OutcomeType
     mechanism: str
-    totalLiquidity: float
+    totalLiquidity: Optional[float] = None
     volume: float
     volume24Hours: float
     isResolved: bool
