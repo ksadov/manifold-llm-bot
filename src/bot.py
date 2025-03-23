@@ -109,7 +109,7 @@ class Bot:
             try:
                 self.trade_on_new_markets()
             except Exception as e:
-                raise e
+                self.logger.error(f"Error in trade loop: {e}")
             time.sleep(self.trade_loop_wait)
 
 
