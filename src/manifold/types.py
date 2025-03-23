@@ -40,9 +40,9 @@ class Fill(BaseModel):
 
 
 class Bet(BaseModel):
-    amount: int
+    amount: int | float
     contractId: str
-    orderAmount: int
+    orderAmount: int | float
     shares: float
     isFilled: bool
     isCancelled: bool
@@ -50,7 +50,7 @@ class Bet(BaseModel):
     outcome: str
     probBefore: float
     probAfter: float
-    loanAmount: int
+    loanAmount: int | float
     createdTime: int
     isRedemption: bool
     visibility: str
