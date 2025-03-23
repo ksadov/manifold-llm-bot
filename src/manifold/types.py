@@ -118,7 +118,7 @@ class User(BaseModel):
     name: str
     username: str
     url: str
-    balance: int
+    balance: int | float
     totalDeposits: float
     lastBetTime: Optional[int] = None
     currentBettingStreak: Optional[int] = None
