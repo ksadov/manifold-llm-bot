@@ -66,6 +66,8 @@ class Bot:
         markets = get_newest(self.get_newest_limit)
         self.logger.debug(f"Found {len(markets)} new markets")
         # Filter out markets that have already been traded on
+        if markets:
+            self.last_search_timestamp = markets[0].createdTime
         markets = [
             market
             for market in markets
@@ -101,8 +103,6 @@ class Bot:
                     if self.comment_with_reasoning:
                         place_comment(market.id, reasoning, self.manifold_api_key)
                         self.logger.info(f"Commented on market: {market.id}")
-        if markets:
-            self.last_search_timestamp = markets[0].createdTime
 
     def run(self):
         while True:
