@@ -32,6 +32,7 @@ class Bot:
         kelly_alpha: float,
         expires_millis_after: Optional[int],
         dry_run: bool,
+        max_trade_time: Optional[int] = None,
     ):
         self.logger = logger
         self.predict_market = predict_market
@@ -45,6 +46,7 @@ class Bot:
         self.last_search_timestamp = None
         self.expires_millis_after = expires_millis_after
         self.dry_run = dry_run
+        self.max_trade_time = max_trade_time
 
     def get_probability_estimate(self, market: FullMarket):
         prediction = self.predict_market(
@@ -77,32 +79,79 @@ class Bot:
         for market in markets:
             if market.outcomeType == OutcomeType.BINARY and self.can_trade(market):
                 self.logger.info(f"Trading on market: {market}")
-                probability_estimate, reasoning = self.get_probability_estimate(market)
-                self.logger.info(
-                    f"Probability estimate for market {market.id}: {probability_estimate}"
-                )
-                bankroll = get_my_account(self.manifold_api_key).balance
-                bet_amount, bet_outcome = kelly_bet(
-                    probability_estimate,
-                    market.probability,
-                    self.kelly_alpha,
-                    bankroll,
-                    self.max_trade_amount,
-                )
-                if bet_amount > 0:
-                    bet = place_limit_order(
-                        market.id,
-                        probability_estimate,
-                        bet_amount,
-                        bet_outcome,
-                        self.manifold_api_key,
-                        expires_millis_after=self.expires_millis_after,
-                        dry_run=self.dry_run,
+                try:
+                    if self.max_trade_time is not None:
+                        start_time = time.time()
+
+                    probability_estimate, reasoning = self.get_probability_estimate(
+                        market
                     )
-                    self.logger.info(f"Placed trade: {bet}")
-                    if self.comment_with_reasoning:
-                        place_comment(market.id, reasoning, self.manifold_api_key)
-                        self.logger.info(f"Commented on market: {market.id}")
+
+                    if (
+                        self.max_trade_time is not None
+                        and time.time() - start_time > self.max_trade_time
+                    ):
+                        self.logger.warning(
+                            f"Timeout processing market {market.id}: exceeded {self.max_trade_time} seconds"
+                        )
+                        continue
+
+                    self.logger.info(
+                        f"Probability estimate for market {market.id}: {probability_estimate}"
+                    )
+                    bankroll = get_my_account(self.manifold_api_key).balance
+
+                    if (
+                        self.max_trade_time is not None
+                        and time.time() - start_time > self.max_trade_time
+                    ):
+                        self.logger.warning(
+                            f"Timeout processing market {market.id}: exceeded {self.max_trade_time} seconds"
+                        )
+                        continue
+
+                    bet_amount, bet_outcome = kelly_bet(
+                        probability_estimate,
+                        market.probability,
+                        self.kelly_alpha,
+                        bankroll,
+                        self.max_trade_amount,
+                    )
+                    if bet_amount > 0:
+                        if (
+                            self.max_trade_time is not None
+                            and time.time() - start_time > self.max_trade_time
+                        ):
+                            self.logger.warning(
+                                f"Timeout processing market {market.id}: exceeded {self.max_trade_time} seconds"
+                            )
+                            continue
+
+                        bet = place_limit_order(
+                            market.id,
+                            probability_estimate,
+                            bet_amount,
+                            bet_outcome,
+                            self.manifold_api_key,
+                            expires_millis_after=self.expires_millis_after,
+                            dry_run=self.dry_run,
+                        )
+                        self.logger.info(f"Placed trade: {bet}")
+
+                        if self.comment_with_reasoning:
+                            if (
+                                self.max_trade_time is not None
+                                and time.time() - start_time > self.max_trade_time
+                            ):
+                                self.logger.warning(
+                                    f"Timeout commenting on market {market.id}: exceeded {self.max_trade_time} seconds"
+                                )
+                                continue
+
+                            place_comment(market.id, reasoning, self.manifold_api_key)
+                            self.logger.info(f"Commented on market: {market.id}")
+                except Exception as e:
+                    self.logger.error(f"Error trading on market {market.id}: {e}")
 
     def run(self):
         while True:
@@ -113,7 +162,9 @@ class Bot:
             time.sleep(self.trade_loop_wait)
 
 
-def init_from_config(config_path: Path, log_level: str) -> Bot:
+def init_from_config(
+    config_path: Path, log_level: str, max_trade_time: Optional[int] = None
+) -> Bot:
     predict_market, logger, _, _, _ = init_pipeline(config_path, log_level, "deploy")
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -131,4 +182,5 @@ def init_from_config(config_path: Path, log_level: str) -> Bot:
         kelly_alpha=config["bet"]["kelly_alpha"],
         expires_millis_after=config["bet"]["expires_millis_after"],
         dry_run=config["bet"]["dry_run"],
+        max_trade_time=max_trade_time,
     )
