@@ -66,14 +66,14 @@ class Bot:
         markets = get_newest(self.get_newest_limit)
         self.logger.debug(f"Found {len(markets)} new markets")
         # Filter out markets that have already been traded on
-        if markets:
-            self.last_search_timestamp = markets[0].createdTime
         markets = [
             market
             for market in markets
             if self.last_search_timestamp is None
             or market.createdTime > self.last_search_timestamp
         ]
+        if markets:
+            self.last_search_timestamp = markets[0].createdTime
         for market in markets:
             if market.outcomeType == OutcomeType.BINARY and self.can_trade(market):
                 self.logger.info(f"Trading on market: {market}")
