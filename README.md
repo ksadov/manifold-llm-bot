@@ -1,5 +1,7 @@
 This repository contains code and instructions for setting up an LLM agent based trading bot for https://manifold.markets/. This agent is compatible with most LLM backends and comes with customizable prompts and scripts for backtesting on historical Manifold data.
 
+You can read my blog post about it [here](https://www.ksadov.com/posts/2025-03-26-tradebot.html).
+
 # Setup
 1. Clone this repo and set up a virtual environment, then install requirements with `pip install -r requirements.txt`. I've tested on Mac and Linux with python 3.11, you're on your own if it breaks for Windows.
 2. Specify an LLM config. LLM configuration is compatible with any provider that uses an [OpenAI-compatible](https://github.com/openai/openai-openapi) endpoint, which includes OpenAI, Anthropic, Together AI, [llama.cpp's default server](https://github.com/ggml-org/llama.cpp/blob/master/examples/server/README.md) and more. Consult `config/llm/gpt-4o-mini-example.json` for reference. Knowledge cutoff date is only required for backtesting on historical data, you can trade without it.
