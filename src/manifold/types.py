@@ -109,7 +109,7 @@ class FullMarket(LiteMarket):
     totalBounty: Optional[float] = None
     bountyLeft: Optional[float] = None
     coverImageUrl: Optional[str] = None
-    groupSlugs: Optional[List[str]] = None
+    groupSlugs: List[str] = []
 
 
 class User(BaseModel):
