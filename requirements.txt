@@ -2,3 +2,4 @@ dspy
 beautifulsoup4
 scikit-learn
 matplotlib
+openai-agents
