@@ -58,10 +58,12 @@ class Bot:
         )
         return prediction.answer, prediction.reasoning
 
-    def can_trade(self, market: FullMarket):
+    def can_trade(self, market: FullMarket, bankroll: float):
         for exclude_group in self.market_filters.get("exclude_groups", []):
             if exclude_group in market.groupSlugs:
                 return False
+        if bankroll < self.max_trade_amount:
+            return False
         return True
 
     def trade_on_new_markets(self):
@@ -77,7 +79,10 @@ class Bot:
         if markets:
             self.last_search_timestamp = markets[0].createdTime
         for market in markets:
-            if market.outcomeType == OutcomeType.BINARY and self.can_trade(market):
+            bankroll = get_my_account(self.manifold_api_key).balance
+            if market.outcomeType == OutcomeType.BINARY and self.can_trade(
+                market, bankroll
+            ):
                 self.logger.info(f"Trading on market: {market}")
                 try:
                     if self.max_trade_time is not None:
@@ -99,7 +104,6 @@ class Bot:
                     self.logger.info(
                         f"Probability estimate for market {market.id}: {probability_estimate}"
                     )
-                    bankroll = get_my_account(self.manifold_api_key).balance
 
                     if (
                         self.max_trade_time is not None

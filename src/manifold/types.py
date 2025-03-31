@@ -118,7 +118,7 @@ class User(BaseModel):
     name: str
     username: str
     url: str
-    balance: int | float
+    balance: float
     totalDeposits: float
     lastBetTime: Optional[int] = None
     currentBettingStreak: Optional[int] = None
@@ -146,6 +146,6 @@ class User(BaseModel):
     streakForgiveness: Optional[int] = None
     followerCountCached: Optional[int] = None
     isBannedFromSweepcash: Optional[bool] = None
-    cashBalance: Optional[int] = None
-    spiceBalance: Optional[int] = None
+    cashBalance: Optional[float] = None
+    spiceBalance: Optional[float] = None
     totalCashDeposits: Optional[float] = None
