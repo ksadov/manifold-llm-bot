@@ -8,7 +8,10 @@ from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
 
 from src.tools.search import Search, make_search_tools
-from src.tools.python_interpreter import PythonInterpreter, eval_python
+from src.tools.python_interpreter import (
+    PythonInterpreter,
+    eval_python as eval_python_tool,
+)
 
 
 class MarketPrediction(dspy.Signature):
@@ -170,7 +173,7 @@ class PredictWithSearchCutoff(dspy.Module):
                 "Cannot use both Python interpreter and scratchpad prompts"
             )
         elif use_python_interpreter:
-            self.tools.append(eval_python)
+            self.tools.append(eval_python_tool)
         if scratchpad_template is not None:
             self.predict_market = PredictWithScratchpad(
                 search_tools=self.tools,
