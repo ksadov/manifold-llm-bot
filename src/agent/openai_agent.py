@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from logging import Logger
 
 from src.tools.search import Search, make_search_tools
-from src.tools.python_interpreter import eval_python
+from src.tools.python_interpreter import eval_python as eval_python_tool
 from typing import Optional, Any, Dict
 from pathlib import Path
 from collections.abc import Callable
@@ -70,7 +70,7 @@ def init_openai(
 
         @function_tool
         def eval_python(code: str) -> Dict[str, Any]:
-            return eval_python(code)
+            return eval_python_tool(code)
 
         search_tools.append(eval_python)
 
@@ -96,8 +96,6 @@ def init_openai(
         current_date: str,
         cutoff_date: Optional[str] = None,
     ) -> MarketPrediction:
-        import asyncio
-
         if cutoff_date is not None:
             search.set_cutoff_date(cutoff_date)
         prompt = format_prompt(
