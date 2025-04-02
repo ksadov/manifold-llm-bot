@@ -2,8 +2,9 @@ from agents import Agent, Runner, function_tool
 from pydantic import BaseModel
 from logging import Logger
 
-from src.tools.search import Search
-from typing import Optional
+from src.tools.search import Search, make_search_tools
+from src.tools.python_interpreter import eval_python
+from typing import Optional, Any, Dict
 from pathlib import Path
 from collections.abc import Callable
 
@@ -33,28 +34,40 @@ def init_openai(
 ) -> Callable:
     instruction = "You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can’t answer, pick the base rate, but return a number between 0 and 1."
 
-    @function_tool
-    def get_relevant_urls(query: str) -> list[dict]:
-        results = search.get_results(query)
-        result_dicts = [result.to_dict() for result in results]
-        return result_dicts
+    raw_search_tools = make_search_tools(search, unified_web_search)
 
-    @function_tool
-    def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
-        if isinstance(url_list, dict) and "items" in url_list:
-            url_list = list(url_list["items"])
-        cleaned_html = [search.retrieve_cleaned_html(url) for url in url_list]
-        result_dicts = [
-            {"url": url, "cleaned_html_content": html}
-            for url, html in zip(url_list, cleaned_html)
-        ]
-        return result_dicts
+    if unified_web_search:
+
+        @function_tool
+        def web_search(query: str) -> list[dict]:
+            return raw_search_tools[0](query)
+
+        search_tools = [web_search]
+    else:
+
+        @function_tool
+        def get_relevant_urls(query: str) -> list[dict]:
+            return raw_search_tools[0](query)
+
+        @function_tool
+        def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
+            return raw_search_tools[1](url_list)
+
+        search_tools = [get_relevant_urls, retrieve_web_content]
+
+    if use_python_interpreter:
+
+        @function_tool
+        def eval_python(code: str) -> Dict[str, Any]:
+            return eval_python(code)
+
+        search_tools.append(eval_python)
 
     agent = Agent(
         name="Oracle",
         instructions=instruction,
         output_type=MarketPrediction,
-        tools=[get_relevant_urls, retrieve_web_content],
+        tools=search_tools,
         model=llm_config["model"],
     )
 

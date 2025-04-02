@@ -175,3 +175,8 @@ if __name__ == "__main__":
         "Example 4 - error message:",
         result["error"]["message"] if result["error"] else None,
     )
+
+
+def eval_python(code: str) -> Dict[str, Any]:
+    interpreter = PythonInterpreter(time_limit=2)
+    return interpreter.execute(code)
