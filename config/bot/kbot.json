@@ -3,6 +3,7 @@
   "secrets_path": "config/secrets/basic_secrets.json",
   "llm_config_path": "config/llm/gpt-4o-mini.json",
   "scratchpad_template_path": null,
+  "agent_type": "dspy",
   "dspy_program_path": "dspy_programs/halawi_zero_shot.json",
   "market_filters": {
     "exclude_groups": [

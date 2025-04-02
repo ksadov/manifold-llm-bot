@@ -9,3 +9,4 @@ logs/
 processed_data/
 dspy_programs/*
 !dspy_programs/halawi_zero_shot.json
+notes.txt

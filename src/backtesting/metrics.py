@@ -1,3 +1,6 @@
+import math
+
+
 def score_stats(scores):
     """
     Return mean and 95% confidence interval for a list of scores.
@@ -32,7 +35,7 @@ def brier_score(example, pred, trace=None):
     - Brier score, or None if the resolution is not YES or NO or the prediction is not
       in [0, 1].
     """
-    p_pred = pred["answer"]
+    p_pred = pred.answer
     resolution_value = (
         1
         if example["resolution"] == "YES"
@@ -44,7 +47,7 @@ def brier_score(example, pred, trace=None):
 
 
 def validate_directional(example, pred, trace=None) -> int:
-    pred_answer = pred["answer"]
+    pred_answer = pred.answer
     resolution = example["resolution"]
     if resolution == "YES" and pred_answer > 0.5:
         return 1
@@ -71,7 +74,7 @@ def soft_cross_entropy(example, pred, trace=None):
     - flipped loss, because dspy optimizes for higher values.
     """
     epsilon = 1e-15
-    p_pred = pred["answer"]
+    p_pred = pred.answer
     y_true = example["probability"]
     # Clip predictions to avoid log(0)
     p_pred = min(p_pred, epsilon, 1 - epsilon)

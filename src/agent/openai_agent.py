@@ -1,3 +1,5 @@
+import asyncio
+
 from agents import Agent, Runner, function_tool
 from pydantic import BaseModel
 from logging import Logger
@@ -12,6 +14,9 @@ from collections.abc import Callable
 class MarketPrediction(BaseModel):
     reasoning: str
     answer: float
+
+    def toDict(self):
+        return {"reasoning": self.reasoning, "answer": self.answer}
 
 
 def format_prompt(
@@ -89,11 +94,24 @@ def init_openai(
         creatorUsername: str,
         comments: list[dict],
         current_date: str,
+        cutoff_date: Optional[str] = None,
     ) -> MarketPrediction:
+        import asyncio
+
+        if cutoff_date is not None:
+            search.set_cutoff_date(cutoff_date)
         prompt = format_prompt(
             template, question, description, creatorUsername, comments, current_date
         )
-        result = Runner.run_sync(agent, prompt)
+
+        # Create new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = Runner.run_sync(agent, prompt)
+        finally:
+            loop.close()
+
         logger.debug(result.raw_responses)
         return result.final_output
 
