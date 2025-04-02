@@ -1,3 +1,4 @@
+# this is all broken, do not use until the Google gen AI library is good
 from google import genai
 from google.genai import types
 from typing import Callable, Optional, Any, Dict
@@ -102,7 +103,7 @@ def init_google(
         # until Google fixes their schemas lol
         reponse_parse_prompt = (
             "Parse the following text into a MarketPrediction object:\n\n"
-            + response.candidates[0].content.text
+            + response.candidates[0].content
         )
         response_parse_response = client.models.generate_content(
             model=llm_config["model"],
@@ -114,7 +115,7 @@ def init_google(
         )
         logger.info(response_parse_response)
         # parse the response into a MarketPrediction object
-        parsed = json.loads(response_parse_response.candidates[0].content.text)
+        parsed = json.loads(response_parse_response.candidates[0].content)
         return MarketPrediction(**parsed)
 
     logger.info("Google agent initialized")
