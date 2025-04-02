@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from src.tools.search import init_search
 from src.agent.dspy_agents import init_dspy, stringify_for_logging
 from src.agent.openai_agent import init_openai
+from src.agent.google_agent import init_google
 
 
 def init_pipeline(
@@ -59,6 +60,15 @@ def init_pipeline(
         )
     elif config["agent_type"] == "openai":
         predict_market = init_openai(
+            llm_config,
+            search,
+            logger,
+            config["unified_web_search"],
+            config["use_python_interpreter"],
+            scratchpad_template_path,
+        )
+    elif config["agent_type"] == "google":
+        predict_market = init_google(
             llm_config,
             search,
             logger,
