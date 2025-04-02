@@ -1,16 +1,16 @@
 from agents import Agent, Runner, function_tool
 from pydantic import BaseModel
+from logging import Logger
 
 from src.tools.search import Search
-from src.logging import Logger
 from typing import Optional
 from pathlib import Path
 from collections.abc import Callable
 
 
-class Answer(BaseModel):
+class MarketPrediction(BaseModel):
     reasoning: str
-    probability: float
+    answer: float
 
 
 def format_prompt(
@@ -26,19 +26,12 @@ def format_prompt(
 def init_openai(
     llm_config: dict,
     search: Search,
+    logger: Logger,
     unified_web_search: bool,
     use_python_interpreter: bool,
     scratchpad_template_path: Optional[Path],
-    logger: Optional[Logger] = None,
 ) -> Callable:
-    # TODO: finish this
     instruction = "You are an expert superforecaster, familiar with the work of Tetlock and others. Make a prediction of the probability that the question will be resolved as true. You MUST give a probability estimate between 0 and 1 UNDER ALL CIRCUMSTANCES. If for some reason you can’t answer, pick the base rate, but return a number between 0 and 1."
-    lm = dspy.LM(
-        f'openai/{llm_config["model"]}',
-        api_key=llm_config["api_key"],
-        api_base=llm_config["api_base"],
-        **llm_config["prompt_params"],
-    )
 
     @function_tool
     def get_relevant_urls(query: str) -> list[dict]:
@@ -60,9 +53,12 @@ def init_openai(
     agent = Agent(
         name="Oracle",
         instructions=instruction,
-        output_type=Answer,
+        output_type=MarketPrediction,
         tools=[get_relevant_urls, retrieve_web_content],
+        model=llm_config["model"],
     )
+
+    print(agent)
 
     def predict_market(
         question: str,
@@ -70,10 +66,14 @@ def init_openai(
         creatorUsername: str,
         comments: list[dict],
         current_date: str,
-    ) -> Answer:
+    ) -> MarketPrediction:
         prompt = format_prompt(
             question, description, creatorUsername, comments, current_date
         )
-        return Runner.run_sync(agent, prompt)
+        result = Runner.run_sync(agent, prompt)
+        logger.debug(result.raw_responses)
+        return result.final_output
+
+    logger.info("OpenAI agent initialized")
 
     return predict_market

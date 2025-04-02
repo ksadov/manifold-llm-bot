@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 from src.tools.search import init_search
 from src.agent.dspy_agents import init_dspy, stringify_for_logging
+from src.agent.openai_agent import init_openai
 
 
 def init_pipeline(
@@ -46,17 +47,27 @@ def init_pipeline(
         if "scratchpad_template_path" in config and config["scratchpad_template_path"]
         else None
     )
-
-    # Initialize prediction function
-    predict_market = init_dspy(
-        llm_config,
-        config["dspy_program_path"],
-        search,
-        config["unified_web_search"],
-        config["use_python_interpreter"],
-        scratchpad_template_path,
-        logger,
-    )
+    if config["agent_type"] == "dspy":
+        predict_market = init_dspy(
+            llm_config,
+            config["dspy_program_path"],
+            search,
+            config["unified_web_search"],
+            config["use_python_interpreter"],
+            scratchpad_template_path,
+            logger,
+        )
+    elif config["agent_type"] == "openai":
+        predict_market = init_openai(
+            llm_config,
+            search,
+            logger,
+            config["unified_web_search"],
+            config["use_python_interpreter"],
+            scratchpad_template_path,
+        )
+    else:
+        raise ValueError(f"Invalid agent type: {config['agent_type']}")
     return (
         predict_market,
         logger,
@@ -64,33 +75,3 @@ def init_pipeline(
         cutoff_date,
         config["market_filters"]["exclude_groups"],
     )
-
-
-def test():
-    config_path = "config/bot/scratchpad.json"
-    predict_market, _, _, _, _ = init_pipeline(
-        config_path,
-        "INFO",
-        "deploy",
-    )
-    question = "Will Manifold Markets shut down before 2030?"
-    description = ""
-    creatorUsername = "user1"
-    comments = []
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    filled_in = predict_market(
-        question=question,
-        description=description,
-        creatorUsername=creatorUsername,
-        comments=comments,
-        current_date=current_date,
-    )
-    print(filled_in)
-
-
-def main():
-    test()
-
-
-if __name__ == "__main__":
-    main()
