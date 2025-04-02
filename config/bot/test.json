@@ -1,9 +1,9 @@
 {
   "name": "test_bot",
   "secrets_path": "config/secrets/basic_secrets.json",
-  "llm_config_path": "config/llm/gemini-flash.json",
+  "llm_config_path": "config/llm/gpt-4o-mini.json",
   "scratchpad_template_path": "config/templates/halawi_scratchpad.txt",
-  "agent_type": "google",
+  "agent_type": "openai",
   "dspy_program_path": null,
   "market_filters": {
     "exclude_groups": [

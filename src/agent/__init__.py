@@ -7,8 +7,6 @@ import datetime
 from src.logging import create_logger
 import os
 
-from typing import Any, Dict, Optional
-
 from src.tools.search import init_search
 from src.agent.dspy_agents import init_dspy, stringify_for_logging
 from src.agent.openai_agent import init_openai
@@ -68,6 +66,7 @@ def init_pipeline(
             scratchpad_template_path,
         )
     elif config["agent_type"] == "google":
+        raise ValueError("Google agent is broken, do not use")
         predict_market = init_google(
             llm_config,
             search,
