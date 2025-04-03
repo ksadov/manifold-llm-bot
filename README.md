@@ -8,7 +8,7 @@ You can read my blog post about it [here](https://www.ksadov.com/posts/2025-03-2
 3. Set up a [Google Custom Search engine](https://developers.google.com/custom-search/v1/introduction) and obtain a your Programmable Search Engine identifier as well as a Google API key.
 4. Obtain a [Manifold Markets API key](https://docs.manifold.markets/api#authentication).
 5. Use your Programmable Search Engine identifier, Google API key and Manifold Markets API key to create a secrets config (see `config/secrets/secrets-example.json` for reference)
-6. Edit your bot config (see `config/bot/basic.json` for reference) to point at your LLM config and your secrets config.
+6. Edit your bot config to point at your LLM config and your secrets config. `config/bot/kbot.json` contains the config that I use for [my manifold bot](https://manifold.markets/kbot), while `config/bot/test.json` contains a config that uses OpenAI's agent framework instead of DSPy's.
 
 # Trade
 Once you have a bot config set up, run `python -m src.scripts.trade my/config/path` to start trading. If you just want to test the bot and aren't ready for it to interact with Manifold for real just yet, set the config value `dry_run` to `true` and `comment_with_reasoning` to false.
