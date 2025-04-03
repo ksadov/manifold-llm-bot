@@ -1,8 +1,9 @@
 {
-  "name": "basic_bot",
+  "name": "test_bot",
   "secrets_path": "config/secrets/basic_secrets.json",
   "llm_config_path": "config/llm/gpt-4o-mini.json",
-  "scratchpad_template_path": "src/halawi_scratchpad.txt",
+  "scratchpad_template_path": "config/templates/halawi_scratchpad.txt",
+  "agent_type": "openai",
   "dspy_program_path": null,
   "market_filters": {
     "exclude_groups": [
@@ -11,11 +12,16 @@
       "sex-and-love",
       "relationships",
       "dating",
-      "manifoldlove-relationships"
+      "manifoldlove-relationships",
+      "destinygg",
+      "finance",
+      "crypto",
+      "stocks",
+      "nsfw"
     ]
   },
-  "trade_loop_wait": 600,
-  "get_newest_limit": 20,
+  "trade_loop_wait": 60,
+  "get_newest_limit": 10,
   "comment_with_reasoning": false,
   "max_search_results": 5,
   "unified_web_search": false,
@@ -23,7 +29,7 @@
   "max_html_length": 20000,
   "bet": {
     "kelly_alpha": 0.1,
-    "max_trade_amount": 10,
+    "max_trade_amount": 5,
     "expires_millis_after": 600000,
     "dry_run": true
   }

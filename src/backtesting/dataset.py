@@ -6,9 +6,7 @@ import datetime
 import json
 
 from pathlib import Path
-from typing import Optional, Iterable, Tuple
-
-from src.agent import MarketPrediction
+from typing import Optional, Iterable
 
 
 def make_example(

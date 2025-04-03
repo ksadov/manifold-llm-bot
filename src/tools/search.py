@@ -7,9 +7,12 @@ import json
 from pathlib import Path
 import dspy
 
+from src.logging import create_logger
+
 
 class CleanHTML(dspy.Signature):
     "Extract the main text content from this HTML, preserving paragraph structure but removing all HTML tags, scripts, styles, and extraneous formatting."
+
     html: str = dspy.InputField()
     clean_text: str = dspy.OutputField()
 
@@ -113,6 +116,42 @@ def init_search(config_path: Path) -> Search:
         config["max_html_length"],
     )
     return search
+
+
+def make_search_tools(search: Search, unified_search: bool) -> list:
+    def get_relevant_urls(query: str) -> list[dict]:
+        results = search.get_results(query)
+        result_dicts = [result.to_dict() for result in results]
+        return result_dicts
+
+    def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
+        if isinstance(url_list, dict) and "items" in url_list:
+            url_list = list(url_list["items"])
+        cleaned_html = [search.retrieve_cleaned_html(url) for url in url_list]
+        result_dicts = [
+            {"url": url, "cleaned_html_content": html}
+            for url, html in zip(url_list, cleaned_html)
+        ]
+        return result_dicts
+
+    if unified_search:
+
+        def web_search(query: str) -> list[dict]:
+            relevant_urls = get_relevant_urls(query)
+            urls = [result["link"] for result in relevant_urls]
+            web_content = retrieve_web_content(urls)
+            result_dicts = [
+                {**relevant_url, **content}
+                for relevant_url, content in zip(relevant_urls, web_content)
+            ]
+            return result_dicts
+
+        search_tools = [web_search]
+
+    else:
+        search_tools = [get_relevant_urls, retrieve_web_content]
+
+    return search_tools
 
 
 def test():

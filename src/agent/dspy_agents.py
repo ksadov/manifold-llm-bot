@@ -1,54 +1,17 @@
-from matplotlib import use
 import dspy
 from logging import Logger
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, List
-import datetime
-from src.logging import create_logger
-import os
+from typing import Any, Dict, Optional
 
 from typing import Any, Dict, Optional
 from dspy.utils.callback import BaseCallback
 
-from src.tools.search import Search, init_search
-from src.tools.python_interpreter import PythonInterpreter
-
-
-def make_search_tools(search: Search, unified_search: bool) -> list:
-    def get_relevant_urls(query: str) -> list[dict]:
-        results = search.get_results(query)
-        result_dicts = [result.to_dict() for result in results]
-        return result_dicts
-
-    def retrieve_web_content(url_list: list[str] | dict) -> list[dict]:
-        if isinstance(url_list, dict) and "items" in url_list:
-            url_list = list(url_list["items"])
-        cleaned_html = [search.retrieve_cleaned_html(url) for url in url_list]
-        result_dicts = [
-            {"url": url, "cleaned_html_content": html}
-            for url, html in zip(url_list, cleaned_html)
-        ]
-        return result_dicts
-
-    if unified_search:
-
-        def web_search(query: str) -> list[dict]:
-            relevant_urls = get_relevant_urls(query)
-            urls = [result["link"] for result in relevant_urls]
-            web_content = retrieve_web_content(urls)
-            result_dicts = [
-                {**relevant_url, **content}
-                for relevant_url, content in zip(relevant_urls, web_content)
-            ]
-            return result_dicts
-
-        search_tools = [web_search]
-
-    else:
-        search_tools = [get_relevant_urls, retrieve_web_content]
-
-    return search_tools
+from src.tools.search import Search, make_search_tools
+from src.tools.python_interpreter import (
+    PythonInterpreter,
+    eval_python as eval_python_tool,
+)
 
 
 class MarketPrediction(dspy.Signature):
@@ -210,13 +173,7 @@ class PredictWithSearchCutoff(dspy.Module):
                 "Cannot use both Python interpreter and scratchpad prompts"
             )
         elif use_python_interpreter:
-
-            def eval_python(code: str) -> Dict[str, Any]:
-                interpreter = PythonInterpreter()
-                result = interpreter.execute(code)
-                return result
-
-            self.tools.append(eval_python)
+            self.tools.append(eval_python_tool)
         if scratchpad_template is not None:
             self.predict_market = PredictWithScratchpad(
                 search_tools=self.tools,
@@ -282,86 +239,3 @@ def init_dspy(
     if logger is not None:
         logger.info("DSPy initialized")
     return predict_market
-
-
-def init_pipeline(
-    config_path: Path,
-    log_level: str,
-    mode: str,
-) -> Tuple[List[dspy.Example], dspy.ReAct, Logger, Optional[str]]:
-    with open(config_path) as f:
-        config = json.load(f)
-    llm_config_path = Path(config["llm_config_path"])
-    with open(llm_config_path) as f:
-        llm_config = json.load(f)
-    # specified in 2021-01-01 format
-    if "knowledge_cutoff" in llm_config and mode != "deploy":
-        cutoff_date = datetime.datetime.strptime(
-            llm_config["knowledge_cutoff"], "%Y-%m-%d"
-        )
-    else:
-        cutoff_date = None
-
-    logger, logfile_name = create_logger(config["name"], mode, log_level=log_level)
-    if mode == "eval":
-        evalfile_name = f"logs/{mode}/{logfile_name.split('.')[0]}.json"
-        os.makedirs(f"logs/{mode}", exist_ok=True)
-    else:
-        evalfile_name = None
-    logger.info(f"Config: {config_path}")
-    logger.info(f"Config: {stringify_for_logging(config)}")
-    search = init_search(config_path)
-
-    scratchpad_template_path = (
-        Path(config["scratchpad_template_path"])
-        if "scratchpad_template_path" in config and config["scratchpad_template_path"]
-        else None
-    )
-
-    # Initialize prediction function
-    predict_market = init_dspy(
-        llm_config,
-        config["dspy_program_path"],
-        search,
-        config["unified_web_search"],
-        config["use_python_interpreter"],
-        scratchpad_template_path,
-        logger,
-    )
-    return (
-        predict_market,
-        logger,
-        evalfile_name,
-        cutoff_date,
-        config["market_filters"]["exclude_groups"],
-    )
-
-
-def test():
-    config_path = "config/bot/scratchpad.json"
-    predict_market, _, _, _, _ = init_pipeline(
-        config_path,
-        "INFO",
-        "deploy",
-    )
-    question = "Will Manifold Markets shut down before 2030?"
-    description = ""
-    creatorUsername = "user1"
-    comments = []
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    filled_in = predict_market(
-        question=question,
-        description=description,
-        creatorUsername=creatorUsername,
-        comments=comments,
-        current_date=current_date,
-    )
-    print(filled_in)
-
-
-def main():
-    test()
-
-
-if __name__ == "__main__":
-    main()
