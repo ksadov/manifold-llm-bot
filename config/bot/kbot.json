@@ -21,9 +21,9 @@
     ]
   },
   "trade_loop_wait": 60,
-  "get_newest_limit": 2,
+  "get_newest_limit": 5,
   "comment_with_reasoning": false,
-  "max_search_results": 5,
+  "max_search_results": 2,
   "unified_web_search": false,
   "use_python_interpreter": false,
   "max_html_length": 20000,
