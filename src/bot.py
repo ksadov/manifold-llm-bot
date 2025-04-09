@@ -274,6 +274,7 @@ class Bot:
         self.logger.info("WebSocket connection established")
         # Subscribe to new markets
         self.subscribe_to_topics(["global/new-contract"])
+        self.get_my_positions()
         # Start ping thread to keep connection alive
         threading.Thread(target=self.ping_thread, daemon=True).start()
 
@@ -325,8 +326,6 @@ class Bot:
         """Run the bot with WebSocket connection"""
         self.is_running = True
         self.connect_websocket()
-
-        self.get_my_positions()
 
         # Keep the main thread alive while the WebSocket runs in background
         try:
