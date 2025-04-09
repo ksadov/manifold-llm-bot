@@ -56,6 +56,7 @@ class Bot:
         self.is_running = False
         self.auto_sell_threshold = auto_sell_threshold
         self.active_positions = {}
+        self.last_ack_time = time.time()
 
     def subscribe_to_position_updates(self, market_id: str, user_id: str):
         """Subscribe to updates for a specific market position"""
@@ -72,7 +73,7 @@ class Bot:
             # Get all bets
             response = requests.get(
                 f"{API_BASE}bets",
-                params={"userId": user_id, "limit": 250},
+                params={"userId": user_id, "limit": 5},
                 headers={"Authorization": f"Key {self.manifold_api_key}"},
             )
             if response.status_code != 200:
@@ -156,99 +157,103 @@ class Bot:
 
     def trade_on_market(self, market):
         """Trade on a single market"""
-        bankroll = get_my_account(self.manifold_api_key).balance
-        if market.outcomeType == OutcomeType.BINARY and self.can_trade(
-            market, bankroll
-        ):
-            self.logger.info(f"Trading on market: {market}")
-            try:
-                if self.max_trade_time is not None:
-                    start_time = time.time()
+        bankroll = get_my_account(self.manifold_api_key)
+        self.logger.debug(f"Evaluating market {market.id}: type={market.outcomeType}")
 
-                probability_estimate, reasoning = self.get_probability_estimate(market)
+        if market.outcomeType != OutcomeType.BINARY:
+            self.logger.debug(f"Skipping non-binary market {market.id}")
+            return
 
-                if (
-                    self.max_trade_time is not None
-                    and time.time() - start_time > self.max_trade_time
-                ):
-                    self.logger.warning(
-                        f"Timeout processing market {market.id}: exceeded {self.max_trade_time} seconds"
-                    )
-                    return
+        if not self.can_trade(market, bankroll):
+            self.logger.debug(
+                f"Market {market.id} failed trade criteria: bankroll={bankroll}, filters={self.market_filters}"
+            )
+            return
 
-                self.logger.info(
-                    f"Probability estimate for market {market.id}: {probability_estimate}"
-                )
+        self.logger.info(f"Trading on market: {market}")
+        try:
+            probability_estimate, reasoning = self.get_probability_estimate(market)
 
-                if (
-                    self.max_trade_time is not None
-                    and time.time() - start_time > self.max_trade_time
-                ):
-                    self.logger.warning(
-                        f"Timeout processing market {market.id}: exceeded {self.max_trade_time} seconds"
-                    )
-                    return
+            self.logger.info(
+                f"Probability estimate for market {market.id}: {probability_estimate}"
+            )
 
-                bet_amount, bet_outcome = kelly_bet(
+            bet_amount, bet_outcome = kelly_bet(
+                probability_estimate,
+                market.probability,
+                self.kelly_alpha,
+                bankroll,
+                self.max_trade_amount,
+            )
+
+            if bet_amount > 0:
+                bet = place_limit_order(
+                    market.id,
                     probability_estimate,
-                    market.probability,
-                    self.kelly_alpha,
-                    bankroll,
-                    self.max_trade_amount,
+                    bet_amount,
+                    bet_outcome,
+                    self.manifold_api_key,
+                    expires_millis_after=self.expires_millis_after,
+                    dry_run=self.dry_run,
                 )
-                if bet_amount > 0:
-                    if (
-                        self.max_trade_time is not None
-                        and time.time() - start_time > self.max_trade_time
-                    ):
-                        self.logger.warning(
-                            f"Timeout processing market {market.id}: exceeded {self.max_trade_time} seconds"
-                        )
-                        return
+                self.logger.info(f"Placed trade: {bet}")
 
-                    bet = place_limit_order(
-                        market.id,
-                        probability_estimate,
-                        bet_amount,
-                        bet_outcome,
-                        self.manifold_api_key,
-                        expires_millis_after=self.expires_millis_after,
-                        dry_run=self.dry_run,
-                    )
-                    self.logger.info(f"Placed trade: {bet}")
-
-                    if self.comment_with_reasoning:
-                        if (
-                            self.max_trade_time is not None
-                            and time.time() - start_time > self.max_trade_time
-                        ):
-                            self.logger.warning(
-                                f"Timeout commenting on market {market.id}: exceeded {self.max_trade_time} seconds"
-                            )
-                            return
-
-                        place_comment(market.id, reasoning, self.manifold_api_key)
-                        self.logger.info(f"Commented on market: {market.id}")
-            except Exception as e:
-                self.logger.error(f"Error trading on market {market.id}: {e}")
+                if self.comment_with_reasoning:
+                    place_comment(market.id, reasoning, self.manifold_api_key)
+                    self.logger.info(f"Commented on market: {market.id}")
+        except Exception as e:
+            self.logger.error(f"Error trading on market {market.id}: {e}")
 
     def on_message(self, ws, message):
         """Handle incoming WebSocket messages"""
         try:
             msg = json.loads(message)
+            self.logger.debug(f"Received WebSocket message: {msg}")  # Debug raw message
+
+            if msg.get("type") == "ack":
+                # Update last_ack_time when we receive a ack
+                self.logger.info(f"Received ack at {time.time()}")
+                self.last_ack_time = time.time()
+
             if msg.get("type") == "broadcast":
                 if msg.get("topic") == "global/new-contract":
-                    # Existing new market handling...
-                    pass
+                    market_data = msg.get("data", {})
+                    market_contract = market_data.get("contract")
+                    market_id = market_contract.get("id") if market_contract else None
+                    if not market_id:
+                        self.logger.warning(
+                            f"Received market data without ID: {market_data}"
+                        )
+                        return
+
+                    self.logger.info(f"Received new market: {market_id}")
+
+                    # Fetch full market data using the API
+                    try:
+                        response = requests.get(
+                            f"{API_BASE}market/{market_id}",
+                            headers={"Authorization": f"Key {self.manifold_api_key}"},
+                        )
+                        if response.status_code == 200:
+                            full_market_data = response.json()
+                            market = FullMarket(
+                                **full_market_data
+                            )  # Convert to FullMarket object
+                            self.trade_on_market(market)
+                        else:
+                            self.logger.error(
+                                f"Failed to fetch full market data: {response.status_code}"
+                            )
+                    except Exception as e:
+                        self.logger.error(f"Error fetching full market data: {e}")
+
                 elif msg.get("topic", "").startswith(
                     "contract/"
                 ) and "user-metrics" in msg.get("topic", ""):
-                    # Handle position update
                     market_id = msg.get("topic").split("/")[1]
                     self.handle_position_update(market_id, msg.get("data", {}))
-
         except Exception as e:
-            self.logger.error(f"Error handling WebSocket message: {e}")
+            self.logger.error(f"Error handling WebSocket message: {e}", exc_info=True)
 
     def on_error(self, ws, error):
         """Handle WebSocket errors"""
@@ -282,12 +287,21 @@ class Bot:
 
     def ping_thread(self):
         """Send periodic pings to keep the WebSocket connection alive"""
+        self.last_ack_time = time.time()  # Initialize when thread starts
+
         while self.is_running and self.ws and self.ws.sock and self.ws.sock.connected:
             try:
+                current_time = time.time()
+                if current_time - self.last_ack_time > 120:
+                    self.logger.warning("No ack received in 2 minutes, reconnecting...")
+                    self.ws.close()
+                    break
+
                 message = {"type": "ping", "txid": self.txid}
                 self.ws.send(json.dumps(message))
                 self.txid += 1
-                time.sleep(30)  # Send ping every 30 seconds
+                self.logger.info(f"Ping sent at {current_time}")
+                time.sleep(30)
             except Exception as e:
                 self.logger.error(f"Error in ping thread: {e}")
                 break
