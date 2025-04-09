@@ -3,3 +3,4 @@ beautifulsoup4
 scikit-learn
 matplotlib
 openai-agents
+websocket-client
