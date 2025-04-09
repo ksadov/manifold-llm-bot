@@ -32,5 +32,6 @@
     "max_trade_amount": 5,
     "expires_millis_after": 600000,
     "dry_run": false
-  }
+  },
+  "auto_sell_threshold": 65
 }
