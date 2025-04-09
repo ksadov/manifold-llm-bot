@@ -4,3 +4,4 @@ scikit-learn
 matplotlib
 openai-agents
 websocket-client
+google-genai
