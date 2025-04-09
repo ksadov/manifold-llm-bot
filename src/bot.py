@@ -73,7 +73,7 @@ class Bot:
             # Get all bets
             response = requests.get(
                 f"{API_BASE}bets",
-                params={"userId": user_id, "limit": 5},
+                params={"userId": user_id, "limit": 100},
                 headers={"Authorization": f"Key {self.manifold_api_key}"},
             )
             if response.status_code != 200:
@@ -185,6 +185,10 @@ class Bot:
                 bankroll,
                 self.max_trade_amount,
             )
+
+            if probability_estimate == 0:
+                # this breaks the API
+                probability_estimate = 0.01
 
             if bet_amount > 0:
                 bet = place_limit_order(
