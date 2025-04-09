@@ -212,7 +212,7 @@ class Bot:
 
             if msg.get("type") == "ack":
                 # Update last_ack_time when we receive a ack
-                self.logger.info(f"Received ack at {time.time()}")
+                self.logger.debug(f"Received ack at {time.time()}")
                 self.last_ack_time = time.time()
 
             if msg.get("type") == "broadcast":
@@ -300,7 +300,7 @@ class Bot:
                 message = {"type": "ping", "txid": self.txid}
                 self.ws.send(json.dumps(message))
                 self.txid += 1
-                self.logger.info(f"Ping sent at {current_time}")
+                self.logger.debug(f"Ping sent at {current_time}")
                 time.sleep(30)
             except Exception as e:
                 self.logger.error(f"Error in ping thread: {e}")
