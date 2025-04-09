@@ -157,7 +157,7 @@ class Bot:
 
     def trade_on_market(self, market):
         """Trade on a single market"""
-        bankroll = get_my_account(self.manifold_api_key)
+        bankroll = get_my_account(self.manifold_api_key).balance
         self.logger.debug(f"Evaluating market {market.id}: type={market.outcomeType}")
 
         if market.outcomeType != OutcomeType.BINARY:
