@@ -40,25 +40,26 @@ class Fill(BaseModel):
 
 
 class Bet(BaseModel):
-    amount: int | float
+    id: str
+    userId: str
     contractId: str
-    orderAmount: int | float
-    shares: float
-    isFilled: bool
-    isCancelled: bool
-    fills: List[Fill]
+    createdTime: int
+    updatedTime: Optional[int] = None
+    amount: float
+    loanAmount: Optional[float] = None
     outcome: str
+    shares: float
     probBefore: float
     probAfter: float
-    loanAmount: int | float
-    createdTime: int
-    isRedemption: bool
-    visibility: str
-    betId: str
     fees: Fees
+    isRedemption: bool
+    replyToCommentId: Optional[str] = None
+    betGroupId: Optional[str] = None
+    answerId: Optional[str] = None
     limitProb: Optional[float] = None
     expiresMillisAfter: Optional[int] = None
     expiresAt: Optional[int] = None
+    isApi: Optional[bool] = None
 
 
 class LiteMarket(BaseModel):
@@ -149,3 +150,31 @@ class User(BaseModel):
     cashBalance: Optional[float] = None
     spiceBalance: Optional[float] = None
     totalCashDeposits: Optional[float] = None
+
+
+class MarketPosition(BaseModel):
+    userId: str
+    contractId: str
+    answerId: Optional[str] = None
+    lastBetTime: int
+    hasNoShares: bool
+    hasShares: bool
+    hasYesShares: bool
+    invested: float
+    loan: float
+    id: Optional[float] = None
+    maxSharesOutcome: Optional[str] = None
+    totalShares: Dict[str, float]
+    totalSpent: Dict[str, float]
+    payout: float
+    profit: float
+    profitPercent: float
+    from_: Optional[Dict[str, Any]] = None
+    userUsername: Optional[str] = None
+    userName: Optional[str] = None
+    userAvatarUrl: Optional[str] = None
+
+    def __init__(self, **kwargs):
+        if "from" in kwargs:
+            kwargs["from_"] = kwargs.pop("from")
+        super().__init__(**kwargs)
