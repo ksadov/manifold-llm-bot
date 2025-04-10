@@ -48,7 +48,7 @@ def main():
     parser.add_argument(
         "--secrets_path", "-s", type=Path, default="config/secrets/basic_secrets.json"
     )
-    parser.add_argument("--db_path", "-d", type=Path, required=True)
+    parser.add_argument("--db_path", "-d", type=Path, default="trade_dbase.sqlite")
     args = parser.parse_args()
     with open(args.secrets_path, "r") as f:
         secrets = json.load(f)

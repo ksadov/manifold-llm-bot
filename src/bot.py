@@ -18,6 +18,7 @@ from src.manifold.utils import (
     get_my_account,
 )
 from src.agent import init_pipeline
+from src.trade_database import MarketPositionDB
 
 
 class Bot:
@@ -34,10 +35,13 @@ class Bot:
         kelly_alpha: float,
         expires_millis_after: Optional[int],
         dry_run: bool,
+        db_path: Optional[str] = None,
         max_trade_time: Optional[int] = None,
         auto_sell_threshold: Optional[float] = None,
     ):
         self.logger = logger
+        self.db = MarketPositionDB(db_path) if db_path else None
+        self.db.init_db()
         self.predict_market = predict_market
         self.manifold_api_key = manifold_api_key
         self.trade_loop_wait = trade_loop_wait
@@ -80,28 +84,23 @@ class Bot:
             self.logger.error(f"Failed to get positions: {response.status_code}")
 
     def get_my_positions(self):
-        """Get recent bets and subscribe to market updates"""
+        """Get positions from database and subscribe to market updates"""
+        if self.db is None:
+            self.logger.error("No database path provided, skipping position retrieval")
+            return
         try:
-            # Get all bets
-            response = requests.get(
-                f"{API_BASE}bets",
-                params={
-                    "userId": self.user_id,
-                    "limit": 100,
-                },
-                headers={"Authorization": f"Key {self.manifold_api_key}"},
-            )
-            if response.status_code != 200:
-                self.logger.error(f"Failed to get bets: {response.status_code}")
-                return
+            # Load positions from database instead of API
+            saved_positions = self.db.get_all_positions()
 
-            # Get unique market IDs from bets
-            market_ids = set(bet["contractId"] for bet in response.json())
-
-            # Get positions for each market
-            for market_id in market_ids:
+            for i, position in enumerate(saved_positions):
+                market_id = position.market_id
+                # Update position from API to get current state
                 self.update_position(market_id)
                 self.subscribe_to_bets(market_id)
+                # we can only make 500 requests per minute
+                if i > 0 and i % 500 == 0:
+                    time.sleep(60)
+            self.logger.info(f"Subscribed to {len(saved_positions)} positions")
 
         except Exception as e:
             self.logger.error(f"Error getting positions: {e}")
@@ -149,8 +148,11 @@ class Bot:
                         self.logger.info(
                             f"Successfully sold position in market {market_id}"
                         )
-                        # get rid of the position from active positions
                         del self.active_positions[market_id]
+                        self.db.remove_position(market_id)
+                        self.subscribe_to_topics(
+                            [f"contract/{market_id}/new-bet"], unsubscribe=True
+                        )
                     else:
                         self.logger.info(f"Response: {response.json()}")
                         self.logger.error(
@@ -224,6 +226,13 @@ class Bot:
                     dry_run=self.dry_run,
                 )
                 self.logger.info(f"Placed trade: {bet}")
+
+                if not self.dry_run:
+                    # Add position to database after successful trade
+                    self.update_position(market.id)
+                    position = self.active_positions.get(market.id)
+                    if position:
+                        self.db.add_position(market.id, position)
 
                 if self.comment_with_reasoning:
                     place_comment(market.id, reasoning, self.manifold_api_key)
@@ -308,10 +317,11 @@ class Bot:
         # Start ping thread to keep connection alive
         threading.Thread(target=self.ping_thread, daemon=True).start()
 
-    def subscribe_to_topics(self, topics):
+    def subscribe_to_topics(self, topics, unsubscribe=False):
         """Subscribe to WebSocket topics"""
         if self.ws and self.ws.sock and self.ws.sock.connected:
-            message = {"type": "subscribe", "txid": self.txid, "topics": topics}
+            sub_type = "unsubscribe" if unsubscribe else "subscribe"
+            message = {"type": sub_type, "txid": self.txid, "topics": topics}
             self.ws.send(json.dumps(message))
             self.txid += 1
             self.logger.info(f"Subscribed to topics: {topics}")
@@ -390,4 +400,5 @@ def init_from_config(
         dry_run=config["bet"]["dry_run"],
         max_trade_time=max_trade_time,
         auto_sell_threshold=config["auto_sell_threshold"],
+        db_path=config["db_path"],
     )

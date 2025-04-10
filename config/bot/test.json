@@ -33,5 +33,6 @@
     "expires_millis_after": 600000,
     "dry_run": true
   },
-  "auto_sell_threshold": 0.95
+  "auto_sell_threshold": 0.95,
+  "db_path": "test_dbase.sqlite"
 }
