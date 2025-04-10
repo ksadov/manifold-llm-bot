@@ -101,15 +101,19 @@ class Bot:
 
     def handle_position_update(self, market_id: str, position_data: dict):
         """Handle updates to a position and sell if threshold reached"""
+        self.logger.info(f"Received position update for market {market_id}")
         try:
             if self.auto_sell_threshold is None:
+                self.logger.info(f"No auto sell threshold set, skipping")
                 return
 
             self.active_positions[market_id] = position_data
+            self.logger.info(f"Active positions: {self.active_positions}")
 
             # Calculate current percentage of max payout
             payout = position_data.get("payout", 0)
             invested = position_data.get("invested", 0)
+            self.logger.info(f"Payout: {payout}, Invested: {invested}")
             if invested > 0:
                 payout_percentage = (payout / invested - 1) * 100
 
