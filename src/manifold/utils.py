@@ -103,7 +103,6 @@ def get_market_positions(market_id: str, **kwargs) -> List[MarketPosition]:
     response.raise_for_status()
     market_positions = []
     for position in response.json():
-        print("position", position)
         market_positions.append(MarketPosition(**position))
     return market_positions
 
@@ -139,7 +138,6 @@ def get_bets(
     }
     response = requests.get(API_BASE + "bets", params=param_dict)
     response.raise_for_status()
-    print(response.json()[0])
     return [Bet(**bet) for bet in response.json()]
 
 
