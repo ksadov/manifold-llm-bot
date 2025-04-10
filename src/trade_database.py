@@ -63,8 +63,27 @@ class MarketPositionDB:
             cursor.execute("DELETE FROM positions WHERE market_id = ?", (market_id,))
             conn.commit()
 
+    def get_position(self, market_id: str) -> SavedPosition:
+        """Get a market position"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM positions WHERE market_id = ?",
+                (market_id,),
+            )
+            row = cursor.fetchone()
+            if row:
+                print("row", row)
+                return SavedPosition(
+                    market_id=row[0],
+                    outcome=row[1],
+                    shares=row[2],
+                    entry_time=row[3],
+                    last_updated=row[4],
+                )
+        return None
+
     def get_all_positions(self) -> List[SavedPosition]:
-        """Get all tracked market positions"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM positions")
