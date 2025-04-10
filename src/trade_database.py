@@ -73,7 +73,6 @@ class MarketPositionDB:
             )
             row = cursor.fetchone()
             if row:
-                print("row", row)
                 return SavedPosition(
                     market_id=row[0],
                     outcome=row[1],
