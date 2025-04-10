@@ -40,8 +40,6 @@ class Fill(BaseModel):
 
 
 class Bet(BaseModel):
-    id: str
-    userId: str
     contractId: str
     createdTime: int
     updatedTime: Optional[int] = None
@@ -60,6 +58,8 @@ class Bet(BaseModel):
     expiresMillisAfter: Optional[int] = None
     expiresAt: Optional[int] = None
     isApi: Optional[bool] = None
+    id: Optional[str] = None
+    userId: Optional[str] = None
 
 
 class LiteMarket(BaseModel):
