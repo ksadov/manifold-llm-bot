@@ -57,23 +57,38 @@ class Bot:
         self.auto_sell_threshold = auto_sell_threshold
         self.active_positions = {}
         self.last_ack_time = time.time()
+        account = get_my_account(self.manifold_api_key)
+        self.user_id = account.id
 
-    def subscribe_to_position_updates(self, market_id: str, user_id: str):
-        """Subscribe to updates for a specific market position"""
-        topic = f"contract/{market_id}/user-metrics/{user_id}"
+    def subscribe_to_bets(self, market_id: str):
+        """Subscribe to new bets for a specific market"""
+        topic = f"contract/{market_id}/new-bet"
         self.subscribe_to_topics([topic])
 
-    def get_my_positions(self):
-        """Get all current positions and subscribe to their updates"""
-        try:
-            # Get user ID from account info
-            account = get_my_account(self.manifold_api_key)
-            user_id = account.id
+    def update_position(self, market_id: str):
+        """Update position for a market"""
+        response = requests.get(
+            f"{API_BASE}market/{market_id}/positions",
+            params={"userId": self.user_id},
+            headers={"Authorization": f"Key {self.manifold_api_key}"},
+        )
+        if response.status_code == 200:
+            if market_id not in self.active_positions:
+                self.active_positions[market_id] = {}
+            self.active_positions[market_id] = response.json()[0]
+        else:
+            self.logger.error(f"Failed to get positions: {response.status_code}")
 
+    def get_my_positions(self):
+        """Get recent bets and subscribe to market updates"""
+        try:
             # Get all bets
             response = requests.get(
                 f"{API_BASE}bets",
-                params={"userId": user_id, "limit": 100},
+                params={
+                    "userId": self.user_id,
+                    "limit": 100,
+                },
                 headers={"Authorization": f"Key {self.manifold_api_key}"},
             )
             if response.status_code != 200:
@@ -85,58 +100,62 @@ class Bot:
 
             # Get positions for each market
             for market_id in market_ids:
-                response = requests.get(
-                    f"{API_BASE}market/{market_id}/positions",
-                    params={"userId": user_id},
-                    headers={"Authorization": f"Key {self.manifold_api_key}"},
-                )
-                if response.status_code == 200:
-                    positions = response.json()
-                    if positions:  # If we have a position
-                        self.active_positions[market_id] = positions[0]
-                        self.subscribe_to_position_updates(market_id, user_id)
+                self.update_position(market_id)
+                self.subscribe_to_bets(market_id)
 
         except Exception as e:
             self.logger.error(f"Error getting positions: {e}")
 
-    def handle_position_update(self, market_id: str, position_data: dict):
-        """Handle updates to a position and sell if threshold reached"""
+    def handle_new_bet(self, market_id: str):
+        """Handle new bet for a market we may have a stake in and sell if threshold reached"""
         self.logger.info(f"Received position update for market {market_id}")
+        if market_id not in self.active_positions:
+            self.logger.info(f"No active position for market {market_id}, skipping")
+            return
         try:
             if self.auto_sell_threshold is None:
                 self.logger.info(f"No auto sell threshold set, skipping")
                 return
-
-            self.active_positions[market_id] = position_data
-            self.logger.info(f"Active positions: {self.active_positions}")
+            self.update_position(market_id)
 
             # Calculate current percentage of max payout
-            payout = position_data.get("payout", 0)
-            invested = position_data.get("invested", 0)
-            self.logger.info(f"Payout: {payout}, Invested: {invested}")
-            if invested > 0:
-                payout_percentage = (payout / invested - 1) * 100
+            payout = self.active_positions[market_id].get("payout", 0)
+            totalShares = self.active_positions[market_id].get("totalShares", {"NO": 0})
+            outcome = self.active_positions[market_id].get("maxSharesOutcome")
+            maxShares = totalShares[outcome]
+            # update position doesn't actually update the payout apparently
+            # so let's calculate based on probability
+            probability_response = requests.get(
+                f"{API_BASE}market/{market_id}/prob",
+                headers={"Authorization": f"Key {self.manifold_api_key}"},
+            )
+            probability = probability_response.json().get("prob", 0)
+
+            if maxShares > 0:
+                payout_percentage = probability if outcome == "YES" else 1 - probability
+                self.logger.info(f"Payout percentage: {payout_percentage}")
 
                 if payout_percentage >= self.auto_sell_threshold:
                     # Determine which outcome to sell
-                    outcome = position_data.get("maxSharesOutcome")
-                    if outcome:
+                    self.logger.info(
+                        f"Selling position in market {market_id} at {payout_percentage}% profit"
+                    )
+                    response = requests.post(
+                        f"{API_BASE}market/{market_id}/sell",
+                        headers={"Authorization": f"Key {self.manifold_api_key}"},
+                        json={"outcome": outcome},
+                    )
+                    if response.status_code == 200:
                         self.logger.info(
-                            f"Selling position in market {market_id} at {payout_percentage}% profit"
+                            f"Successfully sold position in market {market_id}"
                         )
-                        response = requests.post(
-                            f"{API_BASE}market/{market_id}/sell",
-                            headers={"Authorization": f"Key {self.manifold_api_key}"},
-                            json={"outcome": outcome},
+                        # get rid of the position from active positions
+                        del self.active_positions[market_id]
+                    else:
+                        self.logger.info(f"Response: {response.json()}")
+                        self.logger.error(
+                            f"Failed to sell position: {response.status_code}"
                         )
-                        if response.status_code == 200:
-                            self.logger.info(
-                                f"Successfully sold position in market {market_id}"
-                            )
-                        else:
-                            self.logger.error(
-                                f"Failed to sell position: {response.status_code}"
-                            )
 
         except Exception as e:
             self.logger.error(f"Error handling position update: {e}")
@@ -255,11 +274,14 @@ class Bot:
                     except Exception as e:
                         self.logger.error(f"Error fetching full market data: {e}")
 
-                elif msg.get("topic", "").startswith(
-                    "contract/"
-                ) and "user-metrics" in msg.get("topic", ""):
+                elif "new-bet" in msg.get("topic", ""):
+                    self.logger.info(
+                        f"Received position update for market {msg.get('topic')}"
+                    )
                     market_id = msg.get("topic").split("/")[1]
-                    self.handle_position_update(market_id, msg.get("data", {}))
+                    self.handle_new_bet(market_id)
+                else:
+                    self.logger.info(f"Received message with topic: {msg.get('topic')}")
         except Exception as e:
             self.logger.error(f"Error handling WebSocket message: {e}", exc_info=True)
 

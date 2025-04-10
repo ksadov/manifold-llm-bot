@@ -31,7 +31,7 @@
     "kelly_alpha": 0.1,
     "max_trade_amount": 5,
     "expires_millis_after": 600000,
-    "dry_run": false
+    "dry_run": true
   },
-  "auto_sell_threshold": 95
+  "auto_sell_threshold": 0.95
 }
