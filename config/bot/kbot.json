@@ -20,10 +20,7 @@
       "nsfw"
     ]
   },
-  "trade_loop_wait": 60,
-  "get_newest_limit": 5,
-  "comment_with_reasoning": false,
-  "max_search_results": 2,
+  "max_search_results": 3,
   "unified_web_search": false,
   "use_python_interpreter": false,
   "max_html_length": 20000,

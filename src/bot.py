@@ -14,7 +14,6 @@ from src.manifold.constants import WS_URL, API_BASE
 from src.manifold.types import FullMarket, OutcomeType
 from src.manifold.utils import (
     place_limit_order,
-    place_comment,
     get_my_account,
 )
 from src.agent import init_pipeline
@@ -27,16 +26,12 @@ class Bot:
         logger: Logger,
         manifold_api_key: str,
         predict_market: callable,
-        trade_loop_wait: int,
-        get_newest_limit: int,
         market_filters: dict,
         max_trade_amount: Optional[int],
-        comment_with_reasoning: bool,
         kelly_alpha: float,
         expires_millis_after: Optional[int],
         dry_run: bool,
         db_path: Optional[str] = None,
-        max_trade_time: Optional[int] = None,
         auto_sell_threshold: Optional[float] = None,
     ):
         self.logger = logger
@@ -44,16 +39,12 @@ class Bot:
         self.db.init_db()
         self.predict_market = predict_market
         self.manifold_api_key = manifold_api_key
-        self.trade_loop_wait = trade_loop_wait
-        self.get_newest_limit = get_newest_limit
         self.market_filters = market_filters
         self.max_trade_amount = max_trade_amount
-        self.comment_with_reasoning = comment_with_reasoning
         self.kelly_alpha = kelly_alpha
         self.last_search_timestamp = None
         self.expires_millis_after = expires_millis_after
         self.dry_run = dry_run
-        self.max_trade_time = max_trade_time
         self.ws = None
         self.txid = 0
         self.ws_thread = None
@@ -234,9 +225,6 @@ class Bot:
                     if position:
                         self.db.add_position(market.id, position)
 
-                if self.comment_with_reasoning:
-                    place_comment(market.id, reasoning, self.manifold_api_key)
-                    self.logger.info(f"Commented on market: {market.id}")
         except Exception as e:
             self.logger.error(f"Error trading on market {market.id}: {e}")
 
@@ -378,9 +366,7 @@ class Bot:
                 self.ws.close()
 
 
-def init_from_config(
-    config_path: Path, log_level: str, max_trade_time: Optional[int] = None
-) -> Bot:
+def init_from_config(config_path: Path, log_level: str) -> Bot:
     predict_market, logger, _, _, _ = init_pipeline(config_path, log_level, "deploy")
     with open(config_path, "r") as f:
         config = json.load(f)
@@ -390,15 +376,11 @@ def init_from_config(
         logger=logger,
         manifold_api_key=secrets["manifold_api_key"],
         predict_market=predict_market,
-        trade_loop_wait=config["trade_loop_wait"],
-        get_newest_limit=config["get_newest_limit"],
         market_filters=config["market_filters"],
         max_trade_amount=config["bet"]["max_trade_amount"],
-        comment_with_reasoning=config["comment_with_reasoning"],
         kelly_alpha=config["bet"]["kelly_alpha"],
         expires_millis_after=config["bet"]["expires_millis_after"],
         dry_run=config["bet"]["dry_run"],
-        max_trade_time=max_trade_time,
         auto_sell_threshold=config["auto_sell_threshold"],
         db_path=config["db_path"],
     )
