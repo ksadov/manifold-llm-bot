@@ -201,8 +201,14 @@ class Bot:
                 self.logger.info(f"Placed trade: {bet}")
 
                 if not self.dry_run:
-                    # remove position from database after successful trade
-                    self.db.remove_position(market.id)
+                    # add position to database after successful trade
+                    self.db.add_position(
+                        market_id=market.id,
+                        outcome=bet_outcome,
+                        shares=bet_amount,
+                        price=probability_estimate,
+                    )
+                    self.subscribe_to_bets(market.id)
 
         except Exception as e:
             self.logger.error(f"Error trading on market {market.id}: {e}")
