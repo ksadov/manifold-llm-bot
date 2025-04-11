@@ -13,6 +13,9 @@ You can read my blog post about it [here](https://www.ksadov.com/posts/2025-03-2
 # Trade
 Once you have a bot config set up, run `python -m src.scripts.trade my/config/path` to start trading. If you just want to test the bot and aren't ready for it to interact with Manifold for real just yet, set the config value `dry_run` to `true` and `comment_with_reasoning` to false.
 
+## Auto-sell
+`configs/bot/kbot.json` is configured to sell if the market probability hits >.9 if kbot has bet YES or <.1 if kbot has bet NO. It uses a local database to keep track of its positions. This database is updated as the bot trades and should remain in sync with the website, but in case they fall out of sync running `src.scripts.prefill_trade_database` will create a fresh database based on the website's current data.
+
 # Backtest
 1. Download [bets, markets and comments dumps](https://docs.manifold.markets/api#trade-history-dumps). If you'd like you can inspect the contents of each file with `src.scripts.inspect_data_dump path/to/json`.
 2. Run `python -m src.scripts.make_dataset --markets_filepath some/path --trades_filepath some/other/path --comments_filepath you/get/the/idea` to combine the data into a parquet file.
