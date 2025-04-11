@@ -82,14 +82,14 @@ class Bot:
 
     def handle_new_bet(self, market_id: str):
         """Handle new bet for a market we may have a stake in and sell if threshold reached"""
-        self.logger.info(f"Received position update for market {market_id}")
+        self.logger.debug(f"Received position update for market {market_id}")
         position = self.db.get_position(market_id)
         if position is None:
-            self.logger.info(f"No active position for market {market_id}, skipping")
+            self.logger.debug(f"No active position for market {market_id}, skipping")
             return
         try:
             if self.auto_sell_threshold is None:
-                self.logger.info(f"No auto sell threshold set, skipping")
+                self.logger.debug(f"No auto sell threshold set, skipping")
                 return
 
             probability_response = requests.get(
@@ -102,7 +102,7 @@ class Bot:
                 payout_percentage = (
                     probability if position.outcome == "YES" else 1 - probability
                 )
-                self.logger.info(f"Payout percentage: {payout_percentage}")
+                self.logger.debug(f"Payout percentage: {payout_percentage}")
 
                 if payout_percentage >= self.auto_sell_threshold:
                     # Determine which outcome to sell
@@ -127,6 +127,10 @@ class Bot:
                         self.logger.error(
                             f"Failed to sell position: {response.status_code}"
                         )
+                else:
+                    self.logger.debug(
+                        f"Not selling position in market {market_id} at {payout_percentage}"
+                    )
 
         except Exception as e:
             self.logger.error(f"Error handling position update: {e}")
