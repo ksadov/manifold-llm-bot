@@ -55,11 +55,6 @@ class Bot:
         account = get_my_account(self.manifold_api_key)
         self.user_id = account.id
 
-    def subscribe_to_bets(self, market_id: str):
-        """Subscribe to new bets for a specific market"""
-        topic = f"contract/{market_id}/new-bet"
-        self.subscribe_to_topics([topic])
-
     def get_my_positions(self):
         """Get positions from database and subscribe to market updates"""
         if self.db is None:
@@ -71,7 +66,7 @@ class Bot:
 
             for i, position in enumerate(saved_positions):
                 market_id = position.market_id
-                self.subscribe_to_bets(market_id)
+                self.subscribe_to_topics([f"contract/{market_id}/new-bet"])
                 # we can only make 500 requests per minute
                 if i > 0 and i % 500 == 0:
                     time.sleep(60)
@@ -200,15 +195,13 @@ class Bot:
                 )
                 self.logger.info(f"Placed trade: {bet}")
 
-                if not self.dry_run:
-                    # add position to database after successful trade
-                    self.db.add_position(
-                        market_id=market.id,
-                        outcome=bet_outcome,
-                        shares=bet_amount,
-                        price=probability_estimate,
-                    )
-                    self.subscribe_to_bets(market.id)
+                self.db.add_position(
+                    market_id=market.id,
+                    outcome=bet_outcome,
+                    shares=bet_amount,
+                    price=probability_estimate,
+                )
+                self.subscribe_to_topics([f"contract/{market.id}/new-bet"])
 
         except Exception as e:
             self.logger.error(f"Error trading on market {market.id}: {e}")
