@@ -38,6 +38,17 @@ class MarketPositionDB:
 
     def add_position(self, market_id: str, market_position: MarketPosition):
         """Add or update a market position"""
+        self.add_position_limited(
+            market_id=market_id,
+            max_shares_outcome=market_position.maxSharesOutcome,
+            total_shares=market_position.totalShares[market_position.maxSharesOutcome],
+            last_bet_time=market_position.lastBetTime,
+        )
+
+    def add_position_limited(
+        self, market_id, max_shares_outcome, total_shares, last_bet_time
+    ):
+        """Add or update a market position"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -48,9 +59,9 @@ class MarketPositionDB:
             """,
                 (
                     market_id,
-                    market_position.maxSharesOutcome,
-                    market_position.totalShares[market_position.maxSharesOutcome],
-                    market_position.lastBetTime,
+                    max_shares_outcome,
+                    total_shares,
+                    last_bet_time,
                     datetime.now(),
                 ),
             )

@@ -34,12 +34,16 @@ def populate_market_positions(user_id: str, db: MarketPositionDB):
     print(f"Got {len(bets)} bets")
     market_ids = set(bet.contractId for bet in bets)
     print(f"Got {len(market_ids)} market ids")
+    max_per_minute = 450
     for counter, market_id in enumerate(market_ids):
         market_position = get_market_positions(market_id, userId=user_id)
         for position in market_position:
             if has_stake(position):
                 db.add_position(market_id, position)
-        if counter != 0 and counter % 500 == 0:
+                print(f"Added position {position} for market {market_id}")
+        if counter != 0 and counter % max_per_minute == 0:
+            print(f"Processed {counter} positions")
+            print(f"Sleeping for 60 seconds to avoid rate limiting")
             time.sleep(60)
 
 

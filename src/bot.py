@@ -12,11 +12,7 @@ from logging import Logger
 from src.calculations import kelly_bet
 from src.manifold.constants import WS_URL, API_BASE
 from src.manifold.types import FullMarket, OutcomeType
-from src.manifold.utils import (
-    place_limit_order,
-    get_my_account,
-    get_market_positions,
-)
+from src.manifold.utils import place_limit_order, get_my_account
 from src.agent import init_pipeline
 from src.trade_database import MarketPositionDB
 
@@ -194,14 +190,14 @@ class Bot:
                     dry_run=self.dry_run,
                 )
                 self.logger.info(f"Placed trade: {bet}")
-
-                self.db.add_position(
-                    market_id=market.id,
-                    outcome=bet_outcome,
-                    shares=bet_amount,
-                    price=probability_estimate,
-                )
                 self.subscribe_to_topics([f"contract/{market.id}/new-bet"])
+                if self.db is not None:
+                    self.db.add_position_limited(
+                        market_id=market.id,
+                        max_shares_outcome=bet_outcome,
+                        total_shares=bet.shares,
+                        last_bet_time=bet.createdTime,
+                    )
 
         except Exception as e:
             self.logger.error(f"Error trading on market {market.id}: {e}")
