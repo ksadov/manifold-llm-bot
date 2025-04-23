@@ -50,6 +50,7 @@ class Bot:
         self.last_ack_time = time.time()
         account = get_my_account(self.manifold_api_key)
         self.user_id = account.id
+        self.subscribed_topics = set()
 
     def get_my_positions(self):
         """Get positions from database and subscribe to market updates"""
@@ -265,6 +266,8 @@ class Bot:
         self.logger.info(
             f"WebSocket connection closed: {close_status_code} - {close_msg}"
         )
+        # Clear subscriptions when connection closes
+        self.subscribed_topics.clear()
         if self.is_running:
             self.logger.info("Attempting to reconnect in 5 seconds...")
             time.sleep(5)
@@ -283,10 +286,27 @@ class Bot:
         """Subscribe to WebSocket topics"""
         if self.ws and self.ws.sock and self.ws.sock.connected:
             sub_type = "unsubscribe" if unsubscribe else "subscribe"
-            message = {"type": sub_type, "txid": self.txid, "topics": topics}
-            self.ws.send(json.dumps(message))
-            self.txid += 1
-            self.logger.info(f"{sub_type}d to {topics}")
+            # Filter topics based on current subscriptions
+            topics_to_process = []
+            for topic in topics:
+                if unsubscribe:
+                    if topic in self.subscribed_topics:
+                        topics_to_process.append(topic)
+                        self.subscribed_topics.remove(topic)
+                else:
+                    if topic not in self.subscribed_topics:
+                        topics_to_process.append(topic)
+                        self.subscribed_topics.add(topic)
+
+            if topics_to_process:
+                message = {
+                    "type": sub_type,
+                    "txid": self.txid,
+                    "topics": topics_to_process,
+                }
+                self.ws.send(json.dumps(message))
+                self.txid += 1
+                self.logger.info(f"{sub_type}d to {topics_to_process}")
 
     def ping_thread(self):
         """Send periodic pings to keep the WebSocket connection alive"""
