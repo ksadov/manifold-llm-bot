@@ -11,7 +11,7 @@ You can read my blog post about it [here](https://www.ksadov.com/posts/2025-03-2
 6. Edit your bot config to point at your LLM config and your secrets config. `config/bot/kbot.json` contains the config that I use for [my manifold bot](https://manifold.markets/kbot), while `config/bot/test.json` contains a config that uses OpenAI's agent framework instead of DSPy's.
 
 # Trade
-Once you have a bot config set up, run `python -m src.scripts.trade my/config/path` to start trading. If you just want to test the bot and aren't ready for it to interact with Manifold for real just yet, set the config value `dry_run` to `true` and `comment_with_reasoning` to false.
+Once you have a bot config set up, run `python -m src.scripts.trade my/config/path` to start trading. If you just want to test the bot and aren't ready for it to interact with Manifold for real just yet, set the config value `dry_run` to `true`.
 
 ## Auto-sell
 `configs/bot/kbot.json` is configured to sell if the market probability hits >.9 if kbot has bet YES or <.1 if kbot has bet NO. It uses a local database to keep track of its positions. This database is updated as the bot trades and should remain in sync with the website, but in case they fall out of sync running `src.scripts.prefill_trade_database` will create a fresh database based on the website's current data.
