@@ -266,11 +266,15 @@ class Bot:
         self.logger.info(
             f"WebSocket connection closed: {close_status_code} - {close_msg}"
         )
-        # Clear subscriptions when connection closes
+        # Clear everything like we're starting fresh
         self.subscribed_topics.clear()
+        self.ws = None
+        self.txid = 0  # Reset transaction ID to start fresh
+
         if self.is_running:
             self.logger.info("Attempting to reconnect in 5 seconds...")
             time.sleep(5)
+            # Use connect_websocket() which will trigger on_open() and set everything up fresh
             self.connect_websocket()
 
     def on_open(self, ws):
@@ -335,6 +339,11 @@ class Bot:
     def connect_websocket(self):
         """Establish WebSocket connection"""
         try:
+            # Make sure any existing websocket is properly closed
+            if self.ws:
+                self.ws.close()
+                self.ws = None
+
             self.ws = websocket.WebSocketApp(
                 WS_URL,
                 on_open=self.on_open,
