@@ -321,10 +321,8 @@ class Bot:
                 current_time = time.time()
                 if current_time - self.last_ack_time > 120:
                     self.logger.warning("No ack received in 2 minutes, reconnecting...")
+                    # just tear down; on_close() will sleep & reconnect
                     self.ws.close()
-                    # Explicitly reconnect here
-                    time.sleep(5)  # Wait a bit before reconnecting
-                    self.connect_websocket()
                     break  # Exit this ping thread as new connection will start new ping thread
 
                 message = {"type": "ping", "txid": self.txid}
