@@ -1,19 +1,20 @@
-import json
-import time
 import datetime
+import json
+import random
+import threading
+import time
+from logging import Logger
+from pathlib import Path
+from typing import Optional
+
 import requests
 import websocket
-import threading
 
-from typing import Optional
-from pathlib import Path
-from logging import Logger
-
-from src.calculations import kelly_bet
-from src.manifold.constants import WS_URL, API_BASE
-from src.manifold.types import FullMarket, OutcomeType
-from src.manifold.utils import place_limit_order, get_my_account
 from src.agent import init_pipeline
+from src.calculations import kelly_bet
+from src.manifold.constants import API_BASE, WS_URL
+from src.manifold.types import FullMarket, OutcomeType
+from src.manifold.utils import get_my_account, place_limit_order
 from src.trade_database import MarketPositionDB
 
 
@@ -48,6 +49,14 @@ class Bot:
         self.is_running = False
         self.auto_sell_threshold = auto_sell_threshold
         self.last_ack_time = time.time()
+        # Add reconnection state management
+        self.reconnect_attempts = 0
+        self.max_reconnect_attempts = 10
+        self.base_reconnect_delay = 10  # Start with 10 seconds instead of 5
+        self.is_reconnecting = (
+            False  # Flag to prevent multiple concurrent reconnections
+        )
+
         account = get_my_account(self.manifold_api_key)
         self.user_id = account.id
         self.subscribed_topics = set()
@@ -262,24 +271,92 @@ class Bot:
         self.logger.error(f"WebSocket error: {error}")
 
     def on_close(self, ws, close_status_code, close_msg):
-        """Handle WebSocket connection close"""
+        """Handle WebSocket connection close with exponential backoff"""
         self.logger.info(
             f"WebSocket connection closed: {close_status_code} - {close_msg}"
         )
-        # Clear everything like we're starting fresh
+
+        # Clear connection state
         self.subscribed_topics.clear()
         self.ws = None
-        self.txid = 0  # Reset transaction ID to start fresh
+        self.txid = 0
 
-        if self.is_running:
-            self.logger.info("Attempting to reconnect in 5 seconds...")
-            time.sleep(5)
-            # Use connect_websocket() which will trigger on_open() and set everything up fresh
-            self.connect_websocket()
+        # Only attempt reconnection if bot is still running and we're not already reconnecting
+        if self.is_running and not self.is_reconnecting:
+            self.attempt_reconnection()
+
+    def attempt_reconnection(self):
+        """Handle reconnection with exponential backoff and maximum attempts"""
+        if self.is_reconnecting:
+            self.logger.debug("Reconnection already in progress, skipping")
+            return
+
+        self.is_reconnecting = True
+
+        try:
+            while (
+                self.is_running
+                and self.reconnect_attempts < self.max_reconnect_attempts
+            ):
+                self.reconnect_attempts += 1
+
+                # Calculate delay with exponential backoff and jitter
+                delay = min(
+                    self.base_reconnect_delay * (2 ** (self.reconnect_attempts - 1)),
+                    300,  # Cap at 5 minutes
+                )
+                # Add jitter to avoid thundering herd
+                jitter = random.uniform(0.1, 0.3) * delay
+                total_delay = delay + jitter
+
+                self.logger.info(
+                    f"Attempting reconnection {self.reconnect_attempts}/{self.max_reconnect_attempts} "
+                    f"in {total_delay:.1f} seconds..."
+                )
+
+                time.sleep(total_delay)
+
+                if not self.is_running:
+                    break
+
+                try:
+                    self.connect_websocket()
+                    # Give connection time to establish
+                    time.sleep(2)
+
+                    # Check if connection was successful
+                    if self.ws and self.ws.sock and self.ws.sock.connected:
+                        self.logger.info("Reconnection successful!")
+                        self.reconnect_attempts = 0  # Reset on successful connection
+                        self.is_reconnecting = False
+                        return
+                    else:
+                        self.logger.warning(
+                            "Reconnection failed - connection not established"
+                        )
+
+                except Exception as e:
+                    self.logger.error(
+                        f"Reconnection attempt {self.reconnect_attempts} failed: {e}"
+                    )
+
+            if self.reconnect_attempts >= self.max_reconnect_attempts:
+                self.logger.error(
+                    f"Max reconnection attempts ({self.max_reconnect_attempts}) reached. "
+                    f"Stopping reconnection attempts."
+                )
+                self.is_running = False
+
+        finally:
+            self.is_reconnecting = False
 
     def on_open(self, ws):
         """Handle WebSocket connection open"""
         self.logger.info("WebSocket connection established")
+        # Reset reconnection state on successful connection
+        self.reconnect_attempts = 0
+        self.is_reconnecting = False
+
         # Subscribe to new markets
         self.subscribe_to_topics(["global/new-contract"])
         self.get_my_positions()
@@ -314,16 +391,18 @@ class Bot:
 
     def ping_thread(self):
         """Send periodic pings to keep the WebSocket connection alive"""
-        self.last_ack_time = time.time()  # Initialize when thread starts
+        self.last_ack_time = time.time()
 
         while self.is_running and self.ws and self.ws.sock and self.ws.sock.connected:
             try:
                 current_time = time.time()
                 if current_time - self.last_ack_time > 120:
-                    self.logger.warning("No ack received in 2 minutes, reconnecting...")
-                    # just tear down; on_close() will sleep & reconnect
+                    self.logger.warning(
+                        "No ack received in 2 minutes, closing connection for reconnection..."
+                    )
+                    # Close the connection cleanly - this will trigger on_close which handles reconnection
                     self.ws.close()
-                    break  # Exit this ping thread as new connection will start new ping thread
+                    break
 
                 message = {"type": "ping", "txid": self.txid}
                 self.ws.send(json.dumps(message))
@@ -332,6 +411,9 @@ class Bot:
                 time.sleep(30)
             except Exception as e:
                 self.logger.error(f"Error in ping thread: {e}")
+                # Close connection on ping errors too
+                if self.ws:
+                    self.ws.close()
                 break
 
     def connect_websocket(self):
@@ -339,9 +421,13 @@ class Bot:
         try:
             # Make sure any existing websocket is properly closed
             if self.ws:
-                self.ws.close()
+                try:
+                    self.ws.close()
+                except:
+                    pass  # Ignore errors when closing
                 self.ws = None
 
+            self.logger.info("Establishing WebSocket connection...")
             self.ws = websocket.WebSocketApp(
                 WS_URL,
                 on_open=self.on_open,
@@ -353,6 +439,7 @@ class Bot:
             self.ws_thread.start()
         except Exception as e:
             self.logger.error(f"Error connecting to WebSocket: {e}")
+            raise
 
     def run(self):
         """Run the bot with WebSocket connection"""

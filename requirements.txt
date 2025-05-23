@@ -5,3 +5,5 @@ matplotlib
 openai-agents
 websocket-client
 google-genai
+requests
+websocket
